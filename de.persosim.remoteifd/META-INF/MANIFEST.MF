@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Websocket
-Bundle-SymbolicName: de.persosim.websocket
+Bundle-SymbolicName: de.persosim.remoteifd
 Bundle-Version: 1.0.0.qualifier
 Export-Package: de.persosim.websocket
 Require-Bundle: org.globaltester.lib.json,
