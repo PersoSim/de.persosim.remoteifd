@@ -6,18 +6,20 @@ public class DefaultAnnouncementMessageBuilder implements AnnouncementMessageBui
 
 	private String ifdid;
 	private int port;
+	private String name;
 
-	public DefaultAnnouncementMessageBuilder(String ifdid, int port) {
+	public DefaultAnnouncementMessageBuilder(String ifname, String ifdid, int port) {
 		super();
 		this.ifdid = ifdid;
 		this.port = port;
+		this.name = ifname;
 	}
 
 	@Override
 	public byte[] build() {
 		JSONObject announceMessage = new JSONObject();
 		announceMessage.put("msg", "REMOTE_IFD");
-		announceMessage.put("IFDName", "PersoSim");
+		announceMessage.put("IFDName", name);
 		announceMessage.put("IFDID", ifdid);
 		announceMessage.put("SupportedAPI", new String [] { "IFDInterface_WebSocket_v1"});
 		announceMessage.put("port", port);

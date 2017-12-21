@@ -96,6 +96,7 @@ public class WebSocketProtocol {
 					LogLevel.DEBUG);
 			byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
 			outputStream.write(responseBytes, 0, responseBytes.length);
+			outputStream.flush();
 			return true;
 		} catch (NoSuchAlgorithmException | IOException e) {
 			BasicLogger.logException(getClass(), e);
