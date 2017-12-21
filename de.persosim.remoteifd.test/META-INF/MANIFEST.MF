@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Remote IFD Test
+Bundle-SymbolicName: de.persosim.remoteifd.test
+Bundle-Version: 1.0.0.qualifier
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Require-Bundle: de.persosim.driver.connector,
+ de.persosim.simulator,
+ de.persosim.remoteifd,
+ org.globaltester.simulator,
+ org.globaltester.cryptoprovider,
+ org.globaltester.cryptoprovider.bc,
+ org.globaltester.logging

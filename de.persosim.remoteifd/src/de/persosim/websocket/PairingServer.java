@@ -34,41 +34,28 @@ import org.globaltester.logging.tags.LogLevel;
 
 public class PairingServer implements TlsHandshaker {
 
-	private static String STORETYPE = "JKS";
-	private static String KEYSTORE = "keystore.jks";
-	private static String STOREPASSWORD = "storepassword";
-	private static String KEYPASSWORD = "keypassword";
-
 	private byte[] psk;
 	private Socket clientSocket;
 	private TlsServerProtocol protocol;
+	private Certificate selfSignedCert;
+	private AsymmetricKeyParameter privateKey;
 
-	public PairingServer(String psk, Socket client) {
+	public PairingServer(String psk, Certificate selfSignedCert, AsymmetricKeyParameter privateKey, Socket client) {
 		this.psk = psk.getBytes();
 		this.clientSocket = client;
+		this.selfSignedCert = selfSignedCert;
+		this.privateKey = privateKey;
 	}
 
 	@Override
 	public boolean performHandshake() {
-		KeyStore ks_temp = null;
-		try {
-			ks_temp = KeyStore.getInstance(STORETYPE);
-			File kf = new File(KEYSTORE);
-			ks_temp.load(new FileInputStream(kf), STOREPASSWORD.toCharArray());
-		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
-			BasicLogger.logException(getClass(), e);
-		}
-
-		KeyStore ks = ks_temp;
-
 		TlsCrypto crypto = new BcTlsCrypto(new SecureRandom());
 
 		TlsPSKIdentityManager identityManager = new SimpleTlsPSKIdentityManager(psk);
 
 		try {
 
-			protocol = new TlsServerProtocol(clientSocket.getInputStream(),
-					clientSocket.getOutputStream());
+			protocol = new TlsServerProtocol(clientSocket.getInputStream(), clientSocket.getOutputStream());
 
 			protocol.accept(new PSKTlsServer(crypto, identityManager) {
 
@@ -81,24 +68,8 @@ public class PairingServer implements TlsHandshaker {
 				};
 
 				protected TlsCredentialedDecryptor getRSAEncryptionCredentials() throws IOException {
-					byte[] certificateFromStore;
-					try {
-						certificateFromStore = ks.getCertificate("default").getEncoded();
-						TlsCertificate[] certs = new TlsCertificate[1];
-						certs[0] = new BcTlsCertificate((BcTlsCrypto) getCrypto(), certificateFromStore);
-						Certificate cert = new Certificate(certs);
 
-						RSAPrivateKey keyFromStore = (RSAPrivateKey) ks.getKey("default", KEYPASSWORD.toCharArray());
-
-						AsymmetricKeyParameter key = new RSAKeyParameters(true, keyFromStore.getModulus(),
-								keyFromStore.getPrivateExponent());
-
-						return new BcDefaultTlsCredentialedDecryptor((BcTlsCrypto) getCrypto(), cert, key);
-					} catch (CertificateEncodingException | KeyStoreException | UnrecoverableKeyException
-							| NoSuchAlgorithmException e) {
-						BasicLogger.logException(getClass(), e, LogLevel.ERROR);
-					}
-					return null;
+					return new BcDefaultTlsCredentialedDecryptor((BcTlsCrypto) getCrypto(), selfSignedCert, privateKey);
 				};
 
 				public void notifyClientCertificate(Certificate arg0) throws IOException {
@@ -106,19 +77,20 @@ public class PairingServer implements TlsHandshaker {
 				};
 
 				private void validateCertificate(Certificate cert) {
-//							String alias;
-//							try {
-//								byte[] encoded = cert.getCertificateList()[0].getEncoded();
-//								java.security.cert.Certificate jsCert = CertificateFactory.getInstance("X.509")
-//										.generateCertificate(new ByteArrayInputStream(encoded));
-//								alias = ks.getCertificateAlias(jsCert);
-//								if (alias == null) {
-//									throw new IllegalArgumentException("Unknown cert " + jsCert);
-//								}
-//							} catch (KeyStoreException | CertificateException | IOException e) {
-//								BasicLogger.logException(getClass(), e);
-//							}
-						}
+					// String alias;
+					// try {
+					// byte[] encoded = cert.getCertificateList()[0].getEncoded();
+					// java.security.cert.Certificate jsCert =
+					// CertificateFactory.getInstance("X.509")
+					// .generateCertificate(new ByteArrayInputStream(encoded));
+					// alias = ks.getCertificateAlias(jsCert);
+					// if (alias == null) {
+					// throw new IllegalArgumentException("Unknown cert " + jsCert);
+					// }
+					// } catch (KeyStoreException | CertificateException | IOException e) {
+					// BasicLogger.logException(getClass(), e);
+					// }
+				}
 
 				@Override
 				public void notifyHandshakeComplete() throws IOException {

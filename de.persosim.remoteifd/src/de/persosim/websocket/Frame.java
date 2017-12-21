@@ -35,7 +35,7 @@ public class Frame {
 	
 	
 	private boolean fin;
-	private byte[] payload;
+	private byte[] payload = new byte [0];
 	private Opcode opcode;
 
 	public void setFin(boolean fin) {
