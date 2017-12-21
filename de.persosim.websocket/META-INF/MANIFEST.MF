@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Websocket
+Bundle-SymbolicName: de.persosim.websocket
+Bundle-Version: 1.0.0.qualifier
+Export-Package: de.persosim.websocket
+Require-Bundle: org.globaltester.lib.json,
+ org.globaltester.logging,
+ de.persosim.driver.connector,
+ de.persosim.simulator,
+ org.globaltester.simulator,
+ org.globaltester.lib.bctls
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
