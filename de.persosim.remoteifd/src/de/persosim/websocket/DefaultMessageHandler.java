@@ -1,7 +1,10 @@
 package de.persosim.websocket;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.globaltester.logging.BasicLogger;
@@ -11,12 +14,20 @@ import org.json.JSONObject;
 
 import de.persosim.driver.connector.NativeDriverInterface;
 import de.persosim.driver.connector.UnsignedInteger;
+import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscCallData;
 import de.persosim.driver.connector.pcsc.PcscCallResult;
 import de.persosim.driver.connector.pcsc.PcscConstants;
 import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.driver.connector.pcsc.SimplePcscCallResult;
+import de.persosim.simulator.apdu.CommandApdu;
+import de.persosim.simulator.apdu.CommandApduFactory;
 import de.persosim.simulator.platform.Iso7816Lib;
+import de.persosim.simulator.tlv.ConstructedTlvDataObject;
+import de.persosim.simulator.tlv.PrimitiveTlvDataObject;
+import de.persosim.simulator.tlv.TlvConstants;
+import de.persosim.simulator.tlv.TlvDataObject;
+import de.persosim.simulator.tlv.TlvDataObjectContainer;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
 
@@ -39,12 +50,16 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String SLOT_HANDLE = "SlotHandle";
 	private static final String CONTEXT_HANDLE = "ContextHandle";
 	private static final String SLOT_NAME = "SlotName";
+	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
+	private static final byte CCID_FUNCTION_DESTROY_PACE_CHANNEL = 3;
+	private static final byte CCID_FUNCTION_ESTABLISH_PACE_CHANNEL = 2;
 	String contextHandle = "PersoSimContextHandle";
 	String slotHandle = null;
 	private List<PcscListener> listeners;
 	private String deviceName;
 
 	UnsignedInteger lun = new UnsignedInteger(1);
+	private String slotName;
 
 	private static String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
 
@@ -71,6 +86,8 @@ public class DefaultMessageHandler implements MessageHandler {
 		if (jsonMessage.has(SLOT_HANDLE)) {
 			slotHandle = jsonMessage.getString(SLOT_HANDLE);
 		}
+		
+		BasicLogger.log(getClass(), "Received Json message with type: " + messageType + ", ContextHandle: " + contextHandle + ", SlotHandle: " + slotHandle, LogLevel.TRACE);
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {
@@ -81,18 +98,16 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
-			// NOT IN SPEC
 			response.put("IFDName", deviceName);
 
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
 			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
 			break;
 		case IFD_CONNECT:
-			String slotName = jsonMessage.getString(SLOT_NAME);
+			slotName = jsonMessage.getString(SLOT_NAME);
 			boolean exclusive = jsonMessage.getBoolean(EXCLUSIVE);
 
 			response.put(MSG, IFD_CONNECT_RESPONSE);
-
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
 			// Governikus AusweisApp expects slot handle == slot name
@@ -101,7 +116,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			pcscPowerIcc();
+			pcscPowerIcc(PcscConstants.IFD_POWER_UP);
 
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
 			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
@@ -111,20 +126,20 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(MSG, IFD_DISCONNECT_RESPONSE);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
+			response.put(SLOT_HANDLE, this.slotHandle);
 
-			response.put(SLOT_HANDLE, slotHandle);
+			pcscPowerIcc(PcscConstants.IFD_POWER_DOWN);
 
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
 			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
 
-			slotHandle = null;
+			this.slotHandle = null;
 			break;
 		case "IFDTransmit":
 
 			response.put(MSG, "IFDTransmitResponse");
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
-
 			response.put(SLOT_HANDLE, this.slotHandle);
 
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
@@ -171,25 +186,34 @@ public class DefaultMessageHandler implements MessageHandler {
 			}
 
 			response.put("ResponseAPDUs", responseApdus);
-
-			slotHandle = null;
+			
 			break;
 		case "IFDGetStatus":
-			slotName = jsonMessage.getString("SlotName");
-
 			response.put(MSG, "IFDStatus");
 
-			JSONObject caps = new JSONObject();
-			caps.put("PACE", false);
-			caps.put("eID", false);
-			caps.put("eSign", false);
-			caps.put("Destroy", false);
-			response.put("PINCapabilities", caps);
+			// TODO Handle differing slot handle
+			
+			response.put(CONTEXT_HANDLE, this.contextHandle);
+			response.put(SLOT_NAME, this.slotName);
+
+			response.put("PINCapabilities", convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
 			response.put("MaxAPDULength", Short.MAX_VALUE);
 			response.put("ConnectedReader", true);
-			response.put("CardAvailable", true);
+			response.put("CardAvailable", getCardStatus());
 			response.put("EFATR", "");
 			response.put("EFDIR", "");
+			break;
+		case "IFDEstablishPACEChannel":
+			response.put(MSG, "IFDEstablishPACEChannelResponse");
+
+			response.put(CONTEXT_HANDLE, this.contextHandle);
+			response.put(SLOT_HANDLE, this.slotHandle);
+
+			response.put("OutputData", HexString.encode(
+					pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")))));
+
+			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
+			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			break;
@@ -198,6 +222,205 @@ public class DefaultMessageHandler implements MessageHandler {
 		BasicLogger.log(getClass(), "Send JSON message: " + System.lineSeparator() + response.toString(),
 				LogLevel.TRACE);
 		return response.toString();
+	}
+	
+	private boolean getCardStatus() {
+		// As long as this is used only in the PersoSim-GUI application, this is a reasonable assumption
+		return true;
+	}
+
+	private JSONObject convertPscsCapabilitiesToJson(byte[] capabilities) {
+		// We are expecting one length byte and one byte for the bit field
+		if (capabilities.length != 2 || capabilities [0] != 1) {
+			throw new IllegalArgumentException("PACE capabilities in unexpected format");
+		}
+		
+		JSONObject jsonCaps = new JSONObject();
+		jsonCaps.put("PACE", ((byte)(PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT);
+		jsonCaps.put("eID", ((byte)(PersoSimPcscProcessor.BITMAP_EID_APPLICATION_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_EID_APPLICATION_SUPPORT);
+		jsonCaps.put("eSign", ((byte)(PersoSimPcscProcessor.BITMAP_QUALIFIED_SIGNATURE_FUNCTION & capabilities[1])) == PersoSimPcscProcessor.BITMAP_QUALIFIED_SIGNATURE_FUNCTION);
+		jsonCaps.put("Destroy", ((byte)(PersoSimPcscProcessor.BITMAP_IFD_DESTROY_CHANNEL_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_DESTROY_CHANNEL_SUPPORT);
+		return jsonCaps;
+	}
+
+	private byte[] pcscPerformEstablishPaceChannel(byte[] ccidMappedApdu) {
+		CommandApdu apdu = CommandApduFactory.createCommandApdu(ccidMappedApdu);
+
+		UnsignedInteger controlCode = pcscPerformGetFeatures().get(PersoSimPcscProcessor.FEATURE_CONTROL_CODE);
+
+
+		if (apdu.getP2() != 2) {
+			throw new IllegalArgumentException("Unexpected CCID P2 value of " + HexString.hexifyByte(apdu.getP2()));
+		}
+		
+		List<byte[]> parameters = new LinkedList<>();
+
+		parameters.add(controlCode.getAsByteArray());
+		
+		if (!apdu.getCommandData().isEmpty()) {
+			parameters.add(convertCcidToPcscInputBuffer(apdu));
+		}
+		
+		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
+
+		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		
+		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
+			UnsignedInteger paceErrorCode = new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4));
+			if (PersoSimPcscProcessor.RESULT_NO_ERROR.equals(paceErrorCode)) {
+				if (result.getData().get(0).length > 6) {
+					return convertPcscToCcidOutputBuffer(paceErrorCode, Arrays.copyOfRange(result.getData().get(0), 6, result.getData().get(0).length));	
+				} else {
+					return null;
+				}
+			}
+			
+		}
+		throw new IllegalStateException("Call for performing establish pace channel was not successful: "
+				+ result.getResponseCode().getAsHexString());
+	}
+	
+	private byte[] convertPcscToCcidOutputBuffer(UnsignedInteger errorCode, byte[] pcscOutputBuffer) {
+		int offset = 0;
+		short status = Utils.getShortFromUnsignedByteArray(Arrays.copyOfRange(pcscOutputBuffer, offset, offset += 2));
+		byte [] cardAccess = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 2);
+		offset += cardAccess.length + 2;
+		byte [] carCurrent = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 1);
+		offset += carCurrent.length + 1;
+		byte [] carPrevious = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 1);
+		offset += carPrevious.length + 1;
+		byte [] idicc = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 2);
+		offset += idicc.length + 1;
+
+		
+		TlvDataObject errorCodeTlv = new ConstructedTlvDataObject(TlvConstants.TAG_A1, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, errorCode.getAsByteArray()));
+		TlvDataObject statusTlv = new ConstructedTlvDataObject(TlvConstants.TAG_A2, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, Utils.toUnsignedByteArray(status)));
+		TlvDataObject cardAccessTlv = new ConstructedTlvDataObject(TlvConstants.TAG_A3, new ConstructedTlvDataObject(cardAccess));
+		ConstructedTlvDataObject sequence = new ConstructedTlvDataObject(TlvConstants.TAG_SEQUENCE, errorCodeTlv, statusTlv, cardAccessTlv);
+		
+		if (idicc != null && idicc.length > 0) {
+			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A4, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, idicc)));
+		}		
+		if (carCurrent != null && carCurrent.length > 0) {
+			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A5, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, carCurrent)));
+		}		
+		if (carPrevious != null && carPrevious.length > 0) {
+			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A6, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, carPrevious)));
+		}
+		
+		return Utils.appendBytes(sequence.toByteArray(), (byte) 0x90, (byte)0x00);
+	}
+
+	private byte[] convertCcidToPcscInputBuffer(CommandApdu apdu) {
+		byte function = -1;
+		
+		switch (apdu.getP2()) {
+		case CCID_FUNCTION_GET_READER_PACE_CAPABITILIES:
+			function = PersoSimPcscProcessor.FUNCTION_GET_READER_PACE_CAPABILITIES;
+			break;
+		case CCID_FUNCTION_DESTROY_PACE_CHANNEL:
+			function = PersoSimPcscProcessor.FUNCTION_DESTROY_PACE_CHANNEL;
+			break;
+		case CCID_FUNCTION_ESTABLISH_PACE_CHANNEL:
+			function = PersoSimPcscProcessor.FUNCTION_ESTABLISH_PACE_CHANNEL;
+			break;
+		}
+		
+		TlvDataObjectContainer inputData = apdu.getCommandDataObjectContainer();
+		
+		ConstructedTlvDataObject sequence = (ConstructedTlvDataObject) inputData.getTlvDataObject(TlvConstants.TAG_SEQUENCE);
+		byte passwordId = ((ConstructedTlvDataObject)sequence.getTlvDataObject(TlvConstants.TAG_A1)).getTlvDataObject(TlvConstants.TAG_INTEGER).getValueField()[0];
+		byte [] transmittedPassword = sequence.containsTlvDataObject(TlvConstants.TAG_A2) ? ((ConstructedTlvDataObject)sequence.getTlvDataObject(TlvConstants.TAG_A2)).getTlvDataObject(TlvConstants.TAG_NUMERIC_STRING).getValueField() : null;
+		byte [] chat = sequence.containsTlvDataObject(TlvConstants.TAG_A3) ? ((ConstructedTlvDataObject)sequence.getTlvDataObject(TlvConstants.TAG_A3)).getTlvDataObject(TlvConstants.TAG_OCTET_STRING).getValueField() : null;
+		byte [] certificateDescription = sequence.containsTlvDataObject(TlvConstants.TAG_A4) ? ((ConstructedTlvDataObject)sequence.getTlvDataObject(TlvConstants.TAG_A4)).getTlvDataObject(TlvConstants.TAG_SEQUENCE).getValueField() : null;
+		byte [] hashOid = sequence.containsTlvDataObject(TlvConstants.TAG_A5) ? ((ConstructedTlvDataObject)sequence.getTlvDataObject(TlvConstants.TAG_A5)).getTlvDataObject(TlvConstants.TAG_OID).getValueField() : null;
+		
+		byte [] pcscInputData = new byte [] { passwordId };
+		if (chat != null) {
+			pcscInputData = Utils.concatByteArrays(pcscInputData, Utils.createLengthValueFlippedByteOrder(chat, 1));
+		} else {
+			pcscInputData = Utils.appendBytes(pcscInputData, (byte) 0);
+		}
+		if (transmittedPassword != null) {
+			pcscInputData = Utils.concatByteArrays(pcscInputData, Utils.createLengthValueFlippedByteOrder(transmittedPassword, 1));
+		} else {
+			pcscInputData = Utils.appendBytes(pcscInputData, (byte) 0);
+		}
+		if (certificateDescription != null) {
+			pcscInputData = Utils.concatByteArrays(pcscInputData, Utils.createLengthValueFlippedByteOrder(certificateDescription, 2));
+		} else {
+			pcscInputData = Utils.appendBytes(pcscInputData, (byte) 0, (byte) 0);
+		}
+		if (hashOid != null) {
+			pcscInputData = Utils.concatByteArrays(pcscInputData, Utils.createLengthValueFlippedByteOrder(hashOid, 2));
+		} else {
+			pcscInputData = Utils.appendBytes(pcscInputData, (byte) 0, (byte) 0);
+		}
+		
+
+		byte [] pcscFormattedInputData = new byte [] { function };
+		pcscFormattedInputData = Utils.concatByteArrays(pcscFormattedInputData, Utils.createLengthValueFlippedByteOrder(pcscInputData, 2));
+		return pcscFormattedInputData;
+	}
+	
+	private Map<Byte, UnsignedInteger> pcscPerformGetFeatures(){
+		List<byte[]> parameters = new LinkedList<>();
+
+		parameters.add(PcscConstants.CONTROL_CODE_GET_FEATURE_REQUEST.getAsByteArray());
+
+		parameters.add(new byte [0]);
+		
+		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
+		
+		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		
+		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
+			Map<Byte, UnsignedInteger> defs = new HashMap<>();
+			if (result.getData().size() > 0) {
+				byte[] features = result.getData().get(0);
+
+				for (int i = 0; i < features.length; i += 6) {
+					defs.put(features[i], new UnsignedInteger(Arrays.copyOfRange(features, i + 2, i + 6)));
+				}
+
+			}
+			return defs;
+		}
+
+		throw new IllegalStateException("Call for performing get features was not successful: "
+				+ result.getResponseCode().getAsHexString());
+	}
+
+	private byte[] pcscPerformGetReaderPaceCapabilities() {
+
+		UnsignedInteger controlCode = pcscPerformGetFeatures().get(PersoSimPcscProcessor.FEATURE_CONTROL_CODE);
+		
+		if (controlCode == null) {
+			//no PACE feature
+			return new byte [] {1,0};
+			
+		}
+
+		List<byte[]> parameters = new LinkedList<>();
+
+		parameters.add(controlCode.getAsByteArray());
+
+		parameters.add(new byte [] {PersoSimPcscProcessor.FUNCTION_GET_READER_PACE_CAPABILITIES});
+		
+		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
+
+		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+
+		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
+			if (PersoSimPcscProcessor.RESULT_NO_ERROR.equals(new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4)))) {
+				if (result.getData().size() > 0) {
+					return Arrays.copyOfRange(result.getData().get(0), 6, 8);	
+				}
+			}
+			
+		}
+		throw new IllegalStateException("Call for performing establish pace channel was not successful: "
+				+ result.getResponseCode().getAsHexString());
 	}
 
 	private PcscCallResult doPcsc(PcscCallData callData) {
@@ -231,15 +454,14 @@ public class DefaultMessageHandler implements MessageHandler {
 		return result;
 	}
 
-	private void pcscPowerIcc() {
-		UnsignedInteger function = new UnsignedInteger(NativeDriverInterface.VALUE_PCSC_FUNCTION_POWER_ICC);
-
+	private void pcscPowerIcc(UnsignedInteger pcscPowerFunction) {
 		List<byte[]> parameters = new LinkedList<>();
 
-		parameters.add(PcscConstants.IFD_POWER_UP.getAsByteArray());
+		parameters.add(pcscPowerFunction.getAsByteArray());
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 
-		PcscCallResult result = doPcsc(new PcscCallData(function, lun, parameters));
+		PcscCallResult result = doPcsc(
+				new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_POWER_ICC, lun, parameters));
 
 		if (!PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			throw new IllegalStateException(

@@ -1,8 +1,6 @@
  
 package de.persosim.remoteifd.ui.handlers;
 
-import java.io.IOException;
-
 import javax.inject.Inject;
 
 import org.eclipse.e4.core.di.annotations.Execute;
@@ -32,11 +30,7 @@ public class RemoteIfdHandler {
 		if (readerPart.getObject() instanceof ReaderPart) {
 			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
 
-			try {
-				readerPartObject.switchToCommType(new WebsocketComm(false, RemoteIfdConfigManager.getKeyStore(), RemoteIfdConfigManager.getKeyPassword()));
-			} catch (IOException e) {
-				BasicLogger.logException(this.getClass(), e, LogLevel.ERROR);
-			}
+			readerPartObject.switchReaderType(new WebsocketComm(false, RemoteIfdConfigManager.getKeyStore(), RemoteIfdConfigManager.getKeyPassword()));
 		}
 		
 		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.FATAL);

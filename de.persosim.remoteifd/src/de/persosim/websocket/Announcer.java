@@ -56,14 +56,14 @@ final class Announcer implements Runnable {
 				for (DatagramPacket packet : packetsToSend){
 					socket.send(packet);
 				}
-				Thread.sleep(5000);
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					//NOSONAR: This will happen every time the announce is running in a Thread and then stopped
+				}
 			}
 		} catch (IOException e) {
 			throw new IllegalStateException("UDP announce failed", e);
-		} catch (InterruptedException e) {
-			// Ignore
-			BasicLogger.logException(this.getClass(), e, LogLevel.DEBUG);
-			Thread.currentThread().interrupt();
 		}
 	}
 }

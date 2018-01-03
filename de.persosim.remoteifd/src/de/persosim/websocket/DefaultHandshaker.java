@@ -102,7 +102,8 @@ public class DefaultHandshaker implements TlsHandshaker {
 			BasicLogger.log(getClass(), "Closing TLS connection", LogLevel.DEBUG);
 			protocol.close();
 		} catch (IOException e) {
-			throw new IllegalStateException("Closing of TLS connection failed", e);
+			// Expected when peer closes socket too early
+			BasicLogger.logException(getClass(), "Exception during closing of tls server, probably due to early close", e, LogLevel.INFO);
 		}
 	}
 

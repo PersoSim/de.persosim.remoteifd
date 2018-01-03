@@ -22,10 +22,9 @@ public class RemoteIfdConfigManager {
 	
 	static {
 		// FIXME Proper implementation
-		KeyStore ks_temp = null;
 		try {
-			ks_temp = KeyStore.getInstance(STORETYPE);
-			ks_temp.load(new ByteArrayInputStream(HexString.toByteArray(KEYSTORE)), STOREPASSWORD.toCharArray());
+			keyStore = KeyStore.getInstance(STORETYPE);
+			keyStore.load(new ByteArrayInputStream(HexString.toByteArray(KEYSTORE)), STOREPASSWORD.toCharArray());
 		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
 			BasicLogger.logException(RemoteIfdConfigManager.class, e);
 		}

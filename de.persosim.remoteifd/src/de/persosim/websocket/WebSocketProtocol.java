@@ -5,14 +5,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,7 +27,6 @@ public class WebSocketProtocol {
 	private DataInputStream inputStream;
 	private DataOutputStream outputStream;
 	private boolean stopped = false;
-	private Random random = new SecureRandom();
 	private MessageHandler messageHandler;
 
 	public WebSocketProtocol(InputStream inputStream, OutputStream outputStream, MessageHandler messageHandler) {
@@ -49,7 +47,7 @@ public class WebSocketProtocol {
 				}
 				break;
 			case ESTABLISHED:
-				connectionState = handleFragmentedFrames();
+				connectionState = handleFrames();
 				break;
 			case CLOSED:
 				return;
@@ -62,11 +60,11 @@ public class WebSocketProtocol {
 	private boolean handleHandshake() {
 
 		try {
-			// Do not close since it closes the underlying inputStream which is still needed
-			Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8.name());
-			scanner.useDelimiter("\\r\\n\\r\\n");
 
-			String data = scanner.next();
+			BasicLogger.log(getClass(), "Begin handling websocket handshake",
+					LogLevel.DEBUG);
+			
+			String data = readToDelimiter(new char [] {'\r', '\n', '\r', '\n'});
 
 			BasicLogger.log(getClass(), "Received message for websocket handshake: " + System.lineSeparator() + data,
 					LogLevel.DEBUG);
@@ -104,7 +102,43 @@ public class WebSocketProtocol {
 		}
 	}
 
-	private ConnectionState handleFragmentedFrames() {
+	private String readToDelimiter(char[] cs) {
+		InputStreamReader reader = new InputStreamReader(inputStream);
+				
+		int indexToDelimiter = 0;
+		String data = "";
+		
+		do {
+			try {
+				int read = reader.read();
+				char readChar = (char) read;
+				
+				BasicLogger.log(getClass(), "Char read from channel: '" + readChar + "'", LogLevel.TRACE);
+				
+				data += readChar;
+				
+				if (read == -1) {
+					throw new IllegalStateException("Reading reached EOF unexpectedly");
+				}
+				
+				if (readChar == cs[indexToDelimiter]) {
+					BasicLogger.log(getClass(), "Advanced index to delimiter", LogLevel.TRACE);
+					indexToDelimiter++;
+				} else {
+					BasicLogger.log(getClass(), "Reset index to delimiter", LogLevel.TRACE);
+					indexToDelimiter = 0;
+				}
+				
+			} catch (IOException e) {
+				throw new IllegalStateException("Reading of handshake message failed with exception", e);
+			}
+			
+		} while (!(indexToDelimiter == cs.length));
+		
+		return data;
+	}
+
+	private ConnectionState handleFrames() {
 		Frame joinedFrame = readFrame();
 
 		while (!joinedFrame.getFin()) {
@@ -121,23 +155,22 @@ public class WebSocketProtocol {
 			// FIXME allow closed socket on other side
 			if (curFrame.getPayload().length > 2) {
 				writeFrame(createBasicFrame(Opcode.CLOSE,
-						new byte[] { curFrame.getPayload()[1], curFrame.getPayload()[2] }), getMaskingKey());
+						new byte[] { curFrame.getPayload()[1], curFrame.getPayload()[2] }));
 
 			} else {
 
-				writeFrame(createBasicFrame(Opcode.CLOSE, new byte[0]), getMaskingKey());
+				writeFrame(createBasicFrame(Opcode.CLOSE, new byte[0]));
 			}
 			return ConnectionState.CLOSED;
 		case PING:
-			writeFrame(createBasicFrame(Opcode.PONG), getMaskingKey());
+			writeFrame(createBasicFrame(Opcode.PONG));
 			return ConnectionState.ESTABLISHED;
 		case TEXT:
-			// writeFrame(handleTextFrame(curFrame), getMaskingKey());
-			writeFrame(handleTextFrame(curFrame), null);
+			writeFrame(handleTextFrame(curFrame));
 			return ConnectionState.ESTABLISHED;
 		default:
 			BasicLogger.log(getClass(), "Got message with unhandled opcode: " + curFrame.toString(), LogLevel.WARN);
-			writeFrame(createBasicFrame(Opcode.CLOSE), getMaskingKey());
+			writeFrame(createBasicFrame(Opcode.CLOSE));
 			return ConnectionState.CLOSED;
 		}
 	}
@@ -160,23 +193,13 @@ public class WebSocketProtocol {
 				.message(new String(frame.getPayload(), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
 	}
 
-	private byte[] getMaskingKey() {
-		byte[] result = new byte[4];
-		random.nextBytes(result);
-		return result;
-	}
-
-	private void writeFrame(Frame frame, byte[] maskingKey) {
+	private void writeFrame(Frame frame) {
 
 		short header = 0;
 
 		header |= frame.getFin() ? 0x8000 : 0;
 		// TODO set RSV
 		header |= (frame.getOpcode().getValue() << 8);
-
-		if (maskingKey != null) {
-			header |= 0x80; // MASK bit
-		}
 
 		if (frame.getPayload().length <= 125) {
 			header |= frame.getPayload().length;
@@ -192,36 +215,20 @@ public class WebSocketProtocol {
 		try {
 			message.putShort(header);
 
-			if (maskingKey != null) {
-				message.put(maskingKey);
-			}
-
-			logMessage.append("Sent frame: " + HexString.hexifyShort(header));
-
 			if (frame.getPayload().length <= 65535) {
 				message.putShort((short) (0xFFFF & frame.getPayload().length));
-				logMessage.append(HexString.hexifyShort((frame.getPayload().length)));
 			} else {
 				message.putLong(frame.getPayload().length);
-				logMessage.append(Long.toHexString((frame.getPayload().length)));
 			}
 
-			int sentBytes = 0;
-			for (byte current : frame.getPayload()) {
-				if (maskingKey != null) {
-					current = (byte) (current ^ maskingKey[sentBytes % 4]);
-				}
-				message.put((byte) (0xFF & current));
-			}
+			message.put(frame.getPayload());
 
 			message.flip();
 			byte[] toWrite = new byte[message.remaining()];
 			message.get(toWrite);
 			outputStream.write(toWrite);
 
-			for (byte current : toWrite) {
-				logMessage.append(HexString.hexifyByte(current));
-			}
+			logMessage.append("Sent frame: " + HexString.encode(toWrite));
 			BasicLogger.log(getClass(), logMessage.toString(), LogLevel.TRACE);
 
 		} catch (IOException e) {
@@ -262,7 +269,7 @@ public class WebSocketProtocol {
 			}
 
 			String logMessage = "Received Frame Header:" + System.lineSeparator() + "FIN: " + fin
-					+ System.lineSeparator() + "Opcode: " + opcode + System.lineSeparator() + "Mask: " + mask
+					+ System.lineSeparator() + "Opcode: " + Opcode.forValue(opcode).toString() + System.lineSeparator() + "Mask: " + mask
 					+ System.lineSeparator() + "Payload Length: " + payloadLength;
 			BasicLogger.log(getClass(), logMessage, LogLevel.DEBUG);
 
