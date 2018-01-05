@@ -8,6 +8,7 @@ import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.eclipse.swt.widgets.Shell;
 
+import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.remoteifd.ui.parts.ConfigRemoteIfdDialog;
 
 public class ConfigureRemoteIfdHandler {
@@ -21,6 +22,12 @@ public class ConfigureRemoteIfdHandler {
 		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
 		ConfigRemoteIfdDialog dialog = new ConfigRemoteIfdDialog(shell, readerPart);
 		dialog.open();
+		
+		if (readerPart.getObject() instanceof ReaderPart) {
+			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
+			
+			readerPartObject.restartReader();
+		}
 	}
 		
 }

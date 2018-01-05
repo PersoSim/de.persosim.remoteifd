@@ -29,6 +29,7 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private TlsHandshaker handshaker;
 	private HandshakeResultListener handshakeResultListener;
+	private Thread announcer;
 	
 
 
@@ -51,7 +52,13 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 
 	@Override
 	public void stop() {
-		serverThread.interrupt();
+		BasicLogger.log(getClass(), "WebsocketComm stopping", LogLevel.DEBUG);
+		if (serverThread != null) {
+			serverThread.interrupt();	
+		}
+		if (announcer != null) {
+			announcer.interrupt();
+		}
 		try {
 			if (serverSocket != null) {
 				serverSocket.close();
@@ -61,10 +68,13 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 			BasicLogger.logException(getClass(), "Exception during closing of the websocket comm server socket", e, LogLevel.WARN);
 		}
 		try {
-			serverThread.join();
+			if (serverThread != null) {
+				serverThread.join();
+			}
 		} catch (InterruptedException e) {
 			//NOSONAR: stopping the server from the run method interrupts the serverThread
 		}
+		BasicLogger.log(getClass(), "WebsocketComm has been stopped", LogLevel.DEBUG);
 		running = false;
 	}
 
@@ -84,8 +94,8 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 		
 		try {
 			String name = "PersoSim_" + InetAddress.getLocalHost().getHostName();
-			// Hash not yet in Spec (v0.6), but expected by AusweisApp 2 1.13.5
-			// toLowerCase() currently needed because of parsing bug in AusweisApp 
+			// XXX Hash not yet in Spec (v0.6), but expected by AusweisApp 2 1.13.5
+			// .toLowerCase() needed because AusweisApp does not accept upper case hashes
 			String id = HexString.encode(MessageDigest.getInstance("SHA-256").digest(remoteIfdConfig.getHostCertificate().getEncoded())).toLowerCase();
 			
 			if (serverSocket != null) {
@@ -94,7 +104,7 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 			
 			serverSocket = null;
 			
-			Thread announcer = null;
+			announcer = null;
 			serverSocket = new ServerSocket(DEFAULT_SERVER_PORT);
 			while (!Thread.interrupted() ) {
 				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(name, id, DEFAULT_SERVER_PORT)));

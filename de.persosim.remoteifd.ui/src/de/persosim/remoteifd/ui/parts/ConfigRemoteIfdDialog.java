@@ -9,20 +9,19 @@ import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.driver.connector.ui.parts.ReaderPart.ReaderType;
@@ -34,6 +33,7 @@ import de.persosim.websocket.WebsocketComm;
 public class ConfigRemoteIfdDialog extends Dialog {
 
 	private MPart readerPart;
+	private WebsocketComm comm;
 
 	public ConfigRemoteIfdDialog(Shell parentShell, MPart readerPart) {
 		super(parentShell);
@@ -46,28 +46,34 @@ public class ConfigRemoteIfdDialog extends Dialog {
 	protected boolean isResizable() {
 		return true;
 	}
+
+	@Override
+	protected void handleShellCloseEvent() {
+		super.handleShellCloseEvent();
+		comm.stop();
+	}
 	
 	@Override
-	protected Point getInitialSize() {
-		return new Point(300, 200);
+	protected void buttonPressed(int buttonId) {
+		super.buttonPressed(buttonId);
+		comm.stop();
 	}
-
+	
 	@Override
 	protected Control createDialogArea(Composite parentComposite) {
 		final Composite parent = parentComposite;
-		
-		parent.setLayout(new GridLayout(1, false));
 
 		Composite container = (Composite) super.createDialogArea(parent);
-		container.setLayout(new GridLayout(1, true));
+		container.setLayout(new GridLayout(2, true));
 
 		Table certificatesTable = new Table(container, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
 		GridData layoutData = new GridData(GridData.FILL_BOTH);
+		layoutData.horizontalSpan = 2;
+		layoutData.heightHint = 200;
+		layoutData.widthHint = 400;
 		certificatesTable.setLayoutData(layoutData);
-		certificatesTable.setSize(200, 200);
 		refreshTable(certificatesTable);
 		certificatesTable.requestLayout();
-
 
 		Menu menu = new Menu(certificatesTable);
 		certificatesTable.setMenu(menu);
@@ -89,15 +95,16 @@ public class ConfigRemoteIfdDialog extends Dialog {
 				// Do nothing
 			}
 		});
-
-		Text pin = new Text(container, SWT.SINGLE);
-		pin.setEditable(false);
-
+		
 		Button startPairing = new Button(container, SWT.NONE);
 		startPairing.setText("Start pairing");
+		startPairing.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
+		
+		Label pin = new Label(container, SWT.NONE);
+		pin.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
 
 		String pairingCode = getPairingCode();
-		WebsocketComm comm = new WebsocketComm(pairingCode, Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
+		comm = new WebsocketComm(pairingCode, Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
 			
 			@Override
 			public void onHandshakeFinished(boolean success) {
@@ -129,13 +136,10 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		});
 		
 		startPairing.addSelectionListener(new SelectionListener() {
-
-			boolean isPairing = false;
 			
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				if (!isPairing) {
-					isPairing = true;
+				if (pin.getText().isEmpty()) {
 					startPairing.setText("Stop pairing");
 
 					if (readerPart.getObject() instanceof ReaderPart) {
@@ -145,13 +149,14 @@ public class ConfigRemoteIfdDialog extends Dialog {
 					}
 					
 					comm.start();
-					pin.setText(pairingCode);
+					pin.setText("Pairing is active with pin: " + pairingCode);
 
 				} else {
 					if (comm != null) {
 						comm.stop();	
 					}
 					startPairing.setText("Start pairing");
+					pin.setText("");
 				}
 
 			}

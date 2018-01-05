@@ -8,7 +8,7 @@
     <relativePath>../../org.globaltester.parent/org.globaltester.parent/</relativePath>
   </parent>
   <groupId>de.persosim</groupId>
-  <artifactId>de.persosim.remoteifd.ui</artifactId>
+  <artifactId>de.persosim.remoteifd</artifactId>
   <version>0.10.3-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 </project>

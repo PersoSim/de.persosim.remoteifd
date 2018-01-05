@@ -134,7 +134,11 @@ public class EclipseRemoteIfdConfigManager implements RemoteIfdConfigManager {
 			pairedCerts = "";
 		}
 		try {
-			pairedCerts += ":" + HexString.encode(certificate.getEncoded());
+			if (!pairedCerts.isEmpty()) {
+				pairedCerts += ":";
+			}
+			pairedCerts += HexString.encode(certificate.getEncoded());
+			
 			PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS, pairedCerts);
 			PreferenceHelper.flush(bundleId);
 		} catch (CertificateEncodingException e) {
@@ -149,23 +153,27 @@ public class EclipseRemoteIfdConfigManager implements RemoteIfdConfigManager {
 		String toDelete;
 		try {
 			toDelete = HexString.encode(certificate.getEncoded());
-
-			pairedCerts = pairedCerts.replace(toDelete, "");
-			while (pairedCerts.contains("::")) {
-				pairedCerts.replaceAll("::", ":");
-			}
-			if (pairedCerts.startsWith(":")) {
-				pairedCerts = pairedCerts.substring(1);
-			}
-			if (pairedCerts.endsWith(":")) {
-				pairedCerts = pairedCerts.substring(0, pairedCerts.length() - 2);
-			}
 			
+			pairedCerts = pairedCerts.replace(toDelete, "");
+			pairedCerts = cleanupCerts(pairedCerts);
 
 			PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS,pairedCerts);
 			PreferenceHelper.flush(bundleId);
 		} catch (CertificateEncodingException e) {
 			throw new IllegalStateException("Deletion of a paired certificate failed", e);
 		}
+	}
+
+	private String cleanupCerts(String pairedCerts) {
+		while (pairedCerts.contains("::")) {
+			pairedCerts = pairedCerts.replaceAll("::", ":");
+		}
+		if (pairedCerts.startsWith(":")) {
+			pairedCerts = pairedCerts.substring(1);
+		}
+		if (pairedCerts.endsWith(":")) {
+			pairedCerts = pairedCerts.substring(0, pairedCerts.length() - 2);
+		}
+		return pairedCerts;
 	}
 }

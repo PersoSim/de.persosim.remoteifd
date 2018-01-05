@@ -30,7 +30,7 @@ final class Announcer implements Runnable {
 
 	@Override
 	public void run() {
-		BasicLogger.log(getClass(), "Announcer has been started", LogLevel.INFO);
+		BasicLogger.log(getClass(), "Announcer has been started", LogLevel.DEBUG);
 		try (DatagramSocket socket = new DatagramSocket()) {
 			socket.setBroadcast(true);
 			byte [] content = builder.build();
@@ -56,7 +56,7 @@ final class Announcer implements Runnable {
 			}
 			
 
-			BasicLogger.log(getClass(), "Sending " + packetsToSend.size() + " announcement packets", LogLevel.DEBUG);
+			BasicLogger.log(getClass(), "Sending " + packetsToSend.size() + " announcement packets", LogLevel.TRACE);
 			while (!Thread.interrupted()){
 				for (DatagramPacket packet : packetsToSend){
 					socket.send(packet);
@@ -65,8 +65,11 @@ final class Announcer implements Runnable {
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
 					//NOSONAR: This will happen every time the announce is running in a Thread and then stopped
+					break;
 				}
 			}
+
+			BasicLogger.log(getClass(), "Announcer stopped", LogLevel.DEBUG);
 		} catch (IOException e) {
 			throw new IllegalStateException("UDP announce failed", e);
 		}

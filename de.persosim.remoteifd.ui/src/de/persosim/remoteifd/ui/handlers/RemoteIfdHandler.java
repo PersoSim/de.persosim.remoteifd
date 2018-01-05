@@ -6,11 +6,9 @@ import javax.inject.Inject;
 import org.eclipse.e4.core.di.annotations.Execute;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
-import org.globaltester.base.PreferenceHelper;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
-import de.persosim.driver.connector.Activator;
 import de.persosim.driver.connector.service.NativeDriverConnector;
 import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.websocket.WebsocketComm;
@@ -30,13 +28,11 @@ public class RemoteIfdHandler {
 		
 		if (readerPart.getObject() instanceof ReaderPart) {
 			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
-
-			PreferenceHelper.getPreferenceValue(Activator.PLUGIN, "RemoteIfdConfig");
 			
 			readerPartObject.switchReaderType(new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
 		}
 		
-		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.FATAL);
+		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.INFO);
 	}
 		
 }

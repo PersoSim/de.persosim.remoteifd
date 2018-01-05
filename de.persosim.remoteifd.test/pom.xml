@@ -3,12 +3,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.globaltester</groupId>
-    <artifactId>org.globaltester.parent</artifactId>
+    <artifactId>org.globaltester.parent.test</artifactId>
     <version>3.2.3-SNAPSHOT</version>
     <relativePath>../../org.globaltester.parent/org.globaltester.parent/</relativePath>
   </parent>
   <groupId>de.persosim</groupId>
-  <artifactId>de.persosim.remoteifd.ui</artifactId>
+  <artifactId>de.persosim.remoteifd.test</artifactId>
   <version>0.10.3-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 </project>
