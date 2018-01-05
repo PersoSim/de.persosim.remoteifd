@@ -12,6 +12,11 @@ import java.util.HashSet;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
+/**
+ * Announces the availability of a SaK server on all available interfaces via UDP.
+ * @author boonk.martin
+ *
+ */
 final class Announcer implements Runnable {
 	
 	public static int ANNOUNCE_PORT = 24727;

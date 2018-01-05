@@ -1,33 +1,29 @@
 package de.persosim.websocket;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.interfaces.RSAPrivateKey;
+import java.util.Vector;
 
-import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
-import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.tls.Certificate;
+import org.bouncycastle.tls.CertificateRequest;
 import org.bouncycastle.tls.CipherSuite;
+import org.bouncycastle.tls.ClientCertificateType;
+import org.bouncycastle.tls.HashAlgorithm;
 import org.bouncycastle.tls.PSKTlsServer;
+import org.bouncycastle.tls.SignatureAlgorithm;
+import org.bouncycastle.tls.SignatureAndHashAlgorithm;
+import org.bouncycastle.tls.TlsContext;
 import org.bouncycastle.tls.TlsCredentialedDecryptor;
+import org.bouncycastle.tls.TlsCredentials;
 import org.bouncycastle.tls.TlsKeyExchange;
 import org.bouncycastle.tls.TlsPSKIdentityManager;
 import org.bouncycastle.tls.TlsServerProtocol;
-import org.bouncycastle.tls.crypto.TlsCertificate;
 import org.bouncycastle.tls.crypto.TlsCrypto;
+import org.bouncycastle.tls.crypto.TlsSecret;
 import org.bouncycastle.tls.crypto.impl.bc.BcDefaultTlsCredentialedDecryptor;
-import org.bouncycastle.tls.crypto.impl.bc.BcTlsCertificate;
 import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
@@ -37,14 +33,12 @@ public class PairingServer implements TlsHandshaker {
 	private byte[] psk;
 	private Socket clientSocket;
 	private TlsServerProtocol protocol;
-	private Certificate selfSignedCert;
-	private AsymmetricKeyParameter privateKey;
+	private RemoteIfdConfigManager remoteIfdConfig;
 
-	public PairingServer(String psk, Certificate selfSignedCert, AsymmetricKeyParameter privateKey, Socket client) {
+	public PairingServer(String psk, RemoteIfdConfigManager remoteIfdConfig, Socket client) {
 		this.psk = psk.getBytes();
 		this.clientSocket = client;
-		this.selfSignedCert = selfSignedCert;
-		this.privateKey = privateKey;
+		this.remoteIfdConfig = remoteIfdConfig;
 	}
 
 	@Override
@@ -59,8 +53,92 @@ public class PairingServer implements TlsHandshaker {
 
 			protocol.accept(new PSKTlsServer(crypto, identityManager) {
 
+				Certificate usedCert = null;
+
 				public TlsKeyExchange getKeyExchange() throws IOException {
-					return super.getKeyExchange();
+					TlsKeyExchange keyExchange = super.getKeyExchange();
+					return new TlsKeyExchange() {
+						
+						@Override
+						public void skipServerKeyExchange() throws IOException {
+							keyExchange.skipServerKeyExchange();
+						}
+						
+						@Override
+						public void skipServerCredentials() throws IOException {
+							keyExchange.skipServerCredentials();
+						}
+						
+						@Override
+						public void skipClientCredentials() throws IOException {
+							keyExchange.skipClientCredentials();
+						}
+						
+						@Override
+						public boolean requiresServerKeyExchange() {
+							return keyExchange.requiresServerKeyExchange();
+						}
+						
+						@Override
+						public boolean requiresCertificateVerify() {
+							return keyExchange.requiresCertificateVerify();
+						}
+						
+						@Override
+						public void processServerKeyExchange(InputStream input) throws IOException {
+							keyExchange.processServerKeyExchange(input);
+						}
+						
+						@Override
+						public void processServerCredentials(TlsCredentials serverCredentials) throws IOException {
+							keyExchange.processServerCredentials(serverCredentials);
+						}
+						
+						@Override
+						public void processServerCertificate(Certificate serverCertificate) throws IOException {
+							keyExchange.processServerCertificate(serverCertificate);
+						}
+						
+						@Override
+						public void processClientKeyExchange(InputStream input) throws IOException {
+							keyExchange.processClientKeyExchange(input);
+						}
+						
+						@Override
+						public void processClientCredentials(TlsCredentials clientCredentials) throws IOException {
+							keyExchange.processClientCredentials(clientCredentials);
+						}
+						
+						@Override
+						public void processClientCertificate(Certificate clientCertificate) throws IOException {
+							keyExchange.processClientCertificate(clientCertificate);
+						}
+						
+						@Override
+						public void init(TlsContext context) {
+							keyExchange.init(context);
+						}
+						
+						@Override
+						public short[] getClientCertificateTypes() {
+							return new short [] {ClientCertificateType.rsa_sign};
+						}
+						
+						@Override
+						public byte[] generateServerKeyExchange() throws IOException {
+							return keyExchange.generateServerKeyExchange();
+						}
+						
+						@Override
+						public TlsSecret generatePreMasterSecret() throws IOException {
+							return keyExchange.generatePreMasterSecret();
+						}
+						
+						@Override
+						public void generateClientKeyExchange(OutputStream output) throws IOException {
+							keyExchange.generateClientKeyExchange(output);
+						}
+					};
 				};
 
 				protected int[] getCipherSuites() {
@@ -68,34 +146,26 @@ public class PairingServer implements TlsHandshaker {
 				};
 
 				protected TlsCredentialedDecryptor getRSAEncryptionCredentials() throws IOException {
-
-					return new BcDefaultTlsCredentialedDecryptor((BcTlsCrypto) getCrypto(), selfSignedCert, privateKey);
+					return new BcDefaultTlsCredentialedDecryptor((BcTlsCrypto) getCrypto(),
+							CertificateConverter.fromJavaCertificateToBcTlsCertificate(remoteIfdConfig.getHostCertificate()),
+							CertificateConverter.fromJavaKeyToBcAsymetricKeyParameter(remoteIfdConfig.getHostPrivateKey()));
 				};
 
-				public void notifyClientCertificate(Certificate arg0) throws IOException {
-					validateCertificate(arg0);
+				public void notifyClientCertificate(Certificate cert) throws IOException {
+					usedCert = cert;
 				};
-
-				private void validateCertificate(Certificate cert) {
-					// String alias;
-					// try {
-					// byte[] encoded = cert.getCertificateList()[0].getEncoded();
-					// java.security.cert.Certificate jsCert =
-					// CertificateFactory.getInstance("X.509")
-					// .generateCertificate(new ByteArrayInputStream(encoded));
-					// alias = ks.getCertificateAlias(jsCert);
-					// if (alias == null) {
-					// throw new IllegalArgumentException("Unknown cert " + jsCert);
-					// }
-					// } catch (KeyStoreException | CertificateException | IOException e) {
-					// BasicLogger.logException(getClass(), e);
-					// }
-				}
 
 				@Override
 				public void notifyHandshakeComplete() throws IOException {
 					super.notifyHandshakeComplete();
+					remoteIfdConfig.addPairedCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(usedCert));
 					BasicLogger.log(getClass(), "Handshake done", LogLevel.DEBUG);
+				}
+
+				public CertificateRequest getCertificateRequest() {
+					Vector<Object> signatureAndHash = new Vector<>();
+					signatureAndHash.add(new SignatureAndHashAlgorithm(HashAlgorithm.sha256, SignatureAlgorithm.rsa));
+					return new CertificateRequest(new short[] { ClientCertificateType.rsa_sign }, signatureAndHash, null);
 				}
 
 				@Override
@@ -123,7 +193,7 @@ public class PairingServer implements TlsHandshaker {
 			BasicLogger.log(getClass(), "Closing PSK TLS connection", LogLevel.DEBUG);
 			protocol.close();
 		} catch (IOException e) {
-			throw new IllegalStateException("Closing of tls connection failed", e);
+			// NOSONAR: Other side closed the socket prematurely
 		}
 	}
 

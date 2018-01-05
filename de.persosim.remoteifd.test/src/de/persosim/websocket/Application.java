@@ -21,10 +21,16 @@ import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.features.VerifyPinDirect;
 import de.persosim.driver.connector.service.NativeDriverConnector;
 import de.persosim.driver.connector.service.NativeDriverConnectorImpl;
+import de.persosim.driver.connector.ui.ConsoleUi;
 import de.persosim.simulator.PersoSim;
 import de.persosim.simulator.perso.DefaultPersoGt;
 import de.persosim.simulator.utils.HexString;
 
+/**
+ * Demo application instantiating a SaK reachable PersoSim in pairing mode.
+ * @author boonk.martin
+ *
+ */
 public class Application {
 	
 	private static String STORETYPE = "JKS";
@@ -51,6 +57,8 @@ public class Application {
 		connector.addListener(new MctUniversal(new UnsignedInteger(0x42000DB5)));
 		connector.addListener(new PersoSimPcscProcessor(new UnsignedInteger(0x42000DCC)));
 		
+		connector.addUi(new ConsoleUi());
+		
 		KeyStore ks_temp = null;
 		try {
 			ks_temp = KeyStore.getInstance(STORETYPE);
@@ -59,7 +67,7 @@ public class Application {
 			BasicLogger.logException(Application.class, e);
 		}
 		
-		WebsocketComm comm = new WebsocketComm(false, ks_temp, KEYPASSWORD.toCharArray());
+		WebsocketComm comm = new WebsocketComm(null, new KeystoreRemoteIfdConfigManager(new ByteArrayInputStream(HexString.toByteArray(KEYSTORE)), STOREPASSWORD.toCharArray(), KEYPASSWORD.toCharArray()));
 		
 		connector.connect(comm);
 	}

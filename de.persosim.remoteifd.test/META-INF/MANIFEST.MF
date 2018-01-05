@@ -10,4 +10,5 @@ Require-Bundle: de.persosim.driver.connector,
  org.globaltester.simulator,
  org.globaltester.cryptoprovider,
  org.globaltester.cryptoprovider.bc,
- org.globaltester.logging
+ org.globaltester.logging,
+ de.persosim.driver.connector.ui

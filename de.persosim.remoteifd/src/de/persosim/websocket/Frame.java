@@ -23,6 +23,10 @@ public class Frame {
 			return value;
 		}
 		
+		public boolean isControl() {
+			return 0x8 <= getValue() && getValue() <= 0xF;
+		}
+		
 		static Opcode forValue(int value) {
 			for (Opcode opcode : Opcode.values()) {
 				if (opcode.value == value) {

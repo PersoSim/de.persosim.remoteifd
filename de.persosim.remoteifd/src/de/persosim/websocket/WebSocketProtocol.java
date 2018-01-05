@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,15 +27,18 @@ public class WebSocketProtocol {
 	private DataOutputStream outputStream;
 	private boolean stopped = false;
 	private MessageHandler messageHandler;
+	
+	private Frame joinedFrame = null;
+	private InputStreamReader reader;
 
 	public WebSocketProtocol(InputStream inputStream, OutputStream outputStream, MessageHandler messageHandler) {
 		this.inputStream = new DataInputStream(inputStream);
+		reader = new InputStreamReader(inputStream);
 		this.outputStream = new DataOutputStream(outputStream);
 		this.messageHandler = messageHandler;
 	}
 
 	public void handleConnection() {
-
 		ConnectionState connectionState = ConnectionState.NEW;
 
 		while (!stopped) {
@@ -47,7 +49,34 @@ public class WebSocketProtocol {
 				}
 				break;
 			case ESTABLISHED:
-				connectionState = handleFrames();
+				Frame currentFrame = readFrame();
+				
+				if (currentFrame.getOpcode().isControl()) {
+					BasicLogger.log(getClass(), "Handling control frame", LogLevel.TRACE);
+					connectionState = handleFrame(currentFrame);
+				} else {
+					if (joinedFrame == null) {
+						BasicLogger.log(getClass(), "Starting new joined frame", LogLevel.TRACE);
+						joinedFrame = currentFrame;
+					} else {
+						BasicLogger.log(getClass(), "Appending to joined frame", LogLevel.TRACE);
+						joinedFrame.appendFrame(currentFrame);
+					}
+					
+					if (joinedFrame.getFin()) {
+						BasicLogger.log(getClass(), "Joined frame complete, handling now", LogLevel.TRACE);
+						Frame frameToProcess = joinedFrame;
+						joinedFrame = null;
+						Thread handler = new Thread(new Runnable() {
+
+							@Override
+							public void run() {
+								handleFrame(frameToProcess);
+							}});
+						handler.start();
+					}
+				}
+				
 				break;
 			case CLOSED:
 				return;
@@ -103,7 +132,6 @@ public class WebSocketProtocol {
 	}
 
 	private String readToDelimiter(char[] cs) {
-		InputStreamReader reader = new InputStreamReader(inputStream);
 				
 		int indexToDelimiter = 0;
 		String data = "";
@@ -113,8 +141,6 @@ public class WebSocketProtocol {
 				int read = reader.read();
 				char readChar = (char) read;
 				
-				BasicLogger.log(getClass(), "Char read from channel: '" + readChar + "'", LogLevel.TRACE);
-				
 				data += readChar;
 				
 				if (read == -1) {
@@ -122,10 +148,8 @@ public class WebSocketProtocol {
 				}
 				
 				if (readChar == cs[indexToDelimiter]) {
-					BasicLogger.log(getClass(), "Advanced index to delimiter", LogLevel.TRACE);
 					indexToDelimiter++;
 				} else {
-					BasicLogger.log(getClass(), "Reset index to delimiter", LogLevel.TRACE);
 					indexToDelimiter = 0;
 				}
 				
@@ -136,16 +160,6 @@ public class WebSocketProtocol {
 		} while (!(indexToDelimiter == cs.length));
 		
 		return data;
-	}
-
-	private ConnectionState handleFrames() {
-		Frame joinedFrame = readFrame();
-
-		while (!joinedFrame.getFin()) {
-			joinedFrame.appendFrame(readFrame());
-		}
-
-		return handleFrame(joinedFrame);
 	}
 
 	private ConnectionState handleFrame(Frame curFrame) {
@@ -163,7 +177,7 @@ public class WebSocketProtocol {
 			}
 			return ConnectionState.CLOSED;
 		case PING:
-			writeFrame(createBasicFrame(Opcode.PONG));
+			writeFrame(createBasicFrame(Opcode.PONG, curFrame.getPayload()));
 			return ConnectionState.ESTABLISHED;
 		case TEXT:
 			writeFrame(handleTextFrame(curFrame));
@@ -215,9 +229,9 @@ public class WebSocketProtocol {
 		try {
 			message.putShort(header);
 
-			if (frame.getPayload().length <= 65535) {
+			if (frame.getPayload().length <= 65535 && frame.getPayload().length > 125) {
 				message.putShort((short) (0xFFFF & frame.getPayload().length));
-			} else {
+			} else if (frame.getPayload().length > 65535) {
 				message.putLong(frame.getPayload().length);
 			}
 

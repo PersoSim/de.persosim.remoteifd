@@ -6,9 +6,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.security.SecureRandom;
 
-import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.tls.Certificate;
-import org.bouncycastle.tls.DefaultTlsCredentialedSigner;
 import org.bouncycastle.tls.DefaultTlsServer;
 import org.bouncycastle.tls.HashAlgorithm;
 import org.bouncycastle.tls.SignatureAlgorithm;
@@ -26,13 +24,11 @@ public class DefaultHandshaker implements TlsHandshaker {
 
 	private Socket clientSocket;
 	private TlsServerProtocol protocol;
-	private Certificate cert;
-	private AsymmetricKeyParameter key;
+	private RemoteIfdConfigManager remoteIfdConfig;
 
-	public DefaultHandshaker(Certificate cert, AsymmetricKeyParameter key, Socket client) {
+	public DefaultHandshaker(RemoteIfdConfigManager remoteIfdConfig, Socket client) {
 		this.clientSocket = client;
-		this.cert = cert;
-		this.key = key;
+		this.remoteIfdConfig = remoteIfdConfig;
 	}
 
 	@Override
@@ -41,15 +37,17 @@ public class DefaultHandshaker implements TlsHandshaker {
 
 		try {
 
-			protocol = new TlsServerProtocol(clientSocket.getInputStream(),
-					clientSocket.getOutputStream());
+			protocol = new TlsServerProtocol(clientSocket.getInputStream(), clientSocket.getOutputStream());
 
 			protocol.accept(new DefaultTlsServer(crypto) {
-				
+
 				@Override
 				protected TlsCredentialedSigner getRSASignerCredentials() throws IOException {
-					return new BcDefaultTlsCredentialedSigner(new TlsCryptoParameters(context), (BcTlsCrypto) getCrypto(), key, cert, new SignatureAndHashAlgorithm(
-		                    HashAlgorithm.sha256, SignatureAlgorithm.rsa));
+					return new BcDefaultTlsCredentialedSigner(new TlsCryptoParameters(context),
+							(BcTlsCrypto) getCrypto(),
+							CertificateConverter.fromJavaKeyToBcAsymetricKeyParameter(remoteIfdConfig.getHostPrivateKey()),
+							CertificateConverter.fromJavaCertificateToBcTlsCertificate(remoteIfdConfig.getHostCertificate()),
+							new SignatureAndHashAlgorithm(HashAlgorithm.sha256, SignatureAlgorithm.rsa));
 				}
 
 				public void notifyClientCertificate(Certificate arg0) throws IOException {
@@ -57,19 +55,11 @@ public class DefaultHandshaker implements TlsHandshaker {
 				};
 
 				private void validateCertificate(Certificate cert) {
-//							String alias;
-//							try {
-//								byte[] encoded = cert.getCertificateList()[0].getEncoded();
-//								java.security.cert.Certificate jsCert = CertificateFactory.getInstance("X.509")
-//										.generateCertificate(new ByteArrayInputStream(encoded));
-//								alias = ks.getCertificateAlias(jsCert);
-//								if (alias == null) {
-//									throw new IllegalArgumentException("Unknown cert " + jsCert);
-//								}
-//							} catch (KeyStoreException | CertificateException | IOException e) {
-//								BasicLogger.logException(getClass(), e);
-//							}
-						}
+					if (!remoteIfdConfig.getPairedCertificates()
+							.contains(CertificateConverter.fromBcTlsCertificateToJavaCertificate(cert))) {
+						throw new IllegalArgumentException("Unknown cert " + cert);
+					}
+				}
 
 				@Override
 				public void notifyHandshakeComplete() throws IOException {
@@ -91,7 +81,7 @@ public class DefaultHandshaker implements TlsHandshaker {
 			return true;
 
 		} catch (IOException e) {
-			BasicLogger.logException(getClass(), e);
+			BasicLogger.logException(getClass(), "Other side closed the connection", e, LogLevel.WARN);
 		}
 		return false;
 	}
@@ -103,7 +93,8 @@ public class DefaultHandshaker implements TlsHandshaker {
 			protocol.close();
 		} catch (IOException e) {
 			// Expected when peer closes socket too early
-			BasicLogger.logException(getClass(), "Exception during closing of tls server, probably due to early close", e, LogLevel.INFO);
+			BasicLogger.logException(getClass(), "Exception during closing of tls server, probably due to early close",
+					e, LogLevel.INFO);
 		}
 	}
 

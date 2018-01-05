@@ -33,26 +33,42 @@ import de.persosim.simulator.utils.Utils;
 
 public class DefaultMessageHandler implements MessageHandler {
 
-	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultmajor#ok";
-	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultminor#ok";
-	private static final String EXCLUSIVE = "exclusive";
+	private static final String IFD_GET_STATUS = "IFDGetStatus";
+	private static final String IFD_ESTABLISH_PACE_CHANNEL_RESPONSE = "IFDEstablishPACEChannelResponse";
+	private static final String IFD_ESTABLISH_PACE_CHANNEL = "IFDEstablishPACEChannel";
+	private static final String IFD_NAME = "IFDName";
+	private static final String IFD_TRANSMIT = "IFDTransmit";
+	private static final String IFD_TRANSMIT_RESPONSE = "IFDTransmitResponse";
 	private static final String IFD_ESTABLISH_CONTEXT = "IFDEstablishContext";
 	private static final String IFD_ESTABLISH_CONTEXT_RESPONSE = "IFDEstablishContextResponse";
 	private static final String IFD_CONNECT = "IFDConnect";
 	private static final String IFD_CONNECT_RESPONSE = "IFDConnectResponse";
 	private static final String IFD_DISCONNECT = "IFDDisconnect";
 	private static final String IFD_DISCONNECT_RESPONSE = "IFDDisconnectResponse";
-
+	
 	private static final String MSG = "msg";
 	private static final String RESULT_MINOR = "ResultMinor";
 	private static final String RESULT_MAJOR = "ResultMajor";
-	private static final String PROTOCOL = "Protocol";
 	private static final String SLOT_HANDLE = "SlotHandle";
 	private static final String CONTEXT_HANDLE = "ContextHandle";
 	private static final String SLOT_NAME = "SlotName";
+	private static final String COMMAND_APDUS = "CommandAPDUs";
+	private static final String INPUT_APDU = "InputAPDU";
+	private static final String ACCEPTABLE_STATUS_CODES = "AcceptableStatusCodes";
+	private static final String EFDIR = "EFDIR";
+	private static final String EFATR = "EFATR";
+	private static final String CARD_AVAILABLE = "CardAvailable";
+	private static final String CONNECTED_READER = "ConnectedReader";
+	private static final String MAX_APDU_LENGTH = "MaxAPDULength";
+	private static final String PIN_CAPABILITIES = "PINCapabilities";
+	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultmajor#ok";
+	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultminor#ok";
+	
+	
 	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
 	private static final byte CCID_FUNCTION_DESTROY_PACE_CHANNEL = 3;
 	private static final byte CCID_FUNCTION_ESTABLISH_PACE_CHANNEL = 2;
+	
 	String contextHandle = "PersoSimContextHandle";
 	String slotHandle = null;
 	private List<PcscListener> listeners;
@@ -92,21 +108,21 @@ public class DefaultMessageHandler implements MessageHandler {
 		JSONObject response = new JSONObject();
 		switch (messageType) {
 		case IFD_ESTABLISH_CONTEXT:
-			String protocol = jsonMessage.getString(PROTOCOL);
 
 			response.put(MSG, IFD_ESTABLISH_CONTEXT_RESPONSE);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
-			response.put("IFDName", deviceName);
+			response.put(IFD_NAME, deviceName);
 
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
 			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
 			break;
 		case IFD_CONNECT:
-			slotName = jsonMessage.getString(SLOT_NAME);
-			boolean exclusive = jsonMessage.getBoolean(EXCLUSIVE);
+			String slotName = jsonMessage.getString(SLOT_NAME);
 
+			// TODO check for correct slot name
+			
 			response.put(MSG, IFD_CONNECT_RESPONSE);
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
@@ -135,9 +151,9 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			this.slotHandle = null;
 			break;
-		case "IFDTransmit":
+		case IFD_TRANSMIT:
 
-			response.put(MSG, "IFDTransmitResponse");
+			response.put(MSG, IFD_TRANSMIT_RESPONSE);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
@@ -145,17 +161,17 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
 			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
 
-			JSONArray commandApdus = jsonMessage.getJSONArray("CommandAPDUs");
+			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
 
 			List<String> responseApdus = new LinkedList<>();
 
 			for (int i = 0; i < commandApdus.length(); i++) {
 				JSONObject currentApdu = commandApdus.getJSONObject(i);
-				byte[] inputApdu = HexString.toByteArray(currentApdu.getString("InputAPDU"));
+				byte[] inputApdu = HexString.toByteArray(currentApdu.getString(INPUT_APDU));
 
 				Number[] acceptableStatusCodes = null;
-				if (!currentApdu.isNull("AcceptableStatusCodes")) {
-					JSONArray statusCodes = currentApdu.getJSONArray("AcceptableStatusCodes");
+				if (!currentApdu.isNull(ACCEPTABLE_STATUS_CODES)) {
+					JSONArray statusCodes = currentApdu.getJSONArray(ACCEPTABLE_STATUS_CODES);
 					acceptableStatusCodes = getStatusCodesFromJson(statusCodes);
 				}
 
@@ -188,23 +204,24 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put("ResponseAPDUs", responseApdus);
 			
 			break;
-		case "IFDGetStatus":
+		case IFD_GET_STATUS:
 			response.put(MSG, "IFDStatus");
 
 			// TODO Handle differing slot handle
 			
 			response.put(CONTEXT_HANDLE, this.contextHandle);
+			this.slotName = "PersoSim Slot 1";
 			response.put(SLOT_NAME, this.slotName);
 
-			response.put("PINCapabilities", convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
-			response.put("MaxAPDULength", Short.MAX_VALUE);
-			response.put("ConnectedReader", true);
-			response.put("CardAvailable", getCardStatus());
-			response.put("EFATR", "");
-			response.put("EFDIR", "");
+			response.put(PIN_CAPABILITIES, convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
+			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
+			response.put(CONNECTED_READER, true);
+			response.put(CARD_AVAILABLE, getCardStatus());
+			response.put(EFATR, "");
+			response.put(EFDIR, "");
 			break;
-		case "IFDEstablishPACEChannel":
-			response.put(MSG, "IFDEstablishPACEChannelResponse");
+		case IFD_ESTABLISH_PACE_CHANNEL:
+			response.put(MSG, IFD_ESTABLISH_PACE_CHANNEL_RESPONSE);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
@@ -501,6 +518,8 @@ public class DefaultMessageHandler implements MessageHandler {
 		return result;
 	}
 
+	// will be used when AusweisApp handles slot names correctly
+	@SuppressWarnings("unused")
 	private String getSlotName(int length) {
 		String result = "";
 		for (int i = 0; i < length; i++) {

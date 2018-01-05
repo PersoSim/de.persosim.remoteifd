@@ -5,22 +5,11 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateEncodingException;
-import java.security.interfaces.RSAPrivateKey;
 import java.util.List;
 
-import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
-import org.bouncycastle.crypto.params.RSAKeyParameters;
-import org.bouncycastle.tls.Certificate;
-import org.bouncycastle.tls.crypto.TlsCertificate;
-import org.bouncycastle.tls.crypto.impl.bc.BcTlsCertificate;
-import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
@@ -33,19 +22,24 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 	private static final int DEFAULT_SERVER_PORT = 1234;
 	private boolean running = false;
 	AnnouncementMessageBuilder builder;
-	private boolean isPairing;
+	private String pairingCode;
 	private List<PcscListener> listeners;
-	private KeyStore keyStore;
-	private char[] keypassword;
 	private Thread serverThread;
 	private ServerSocket serverSocket;
+	private RemoteIfdConfigManager remoteIfdConfig;
+	private TlsHandshaker handshaker;
+	private HandshakeResultListener handshakeResultListener;
 	
 
 
-	public WebsocketComm(boolean pairing, KeyStore keyStore, char [] keypassword) {
-		isPairing = pairing;
-		this.keyStore = keyStore;
-		this.keypassword = keypassword;
+	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
+		this.pairingCode = pairingCode;
+		this.remoteIfdConfig = remoteIfdConfig;
+		this.handshakeResultListener = handshakeResultListener;
+	}
+	
+	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig) {
+		this(pairingCode, remoteIfdConfig, null);
 	}
 
 	@Override
@@ -59,17 +53,17 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 	public void stop() {
 		serverThread.interrupt();
 		try {
-			serverSocket.close();
-			serverSocket = null;
+			if (serverSocket != null) {
+				serverSocket.close();
+				serverSocket = null;	
+			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			BasicLogger.logException(getClass(), "Exception during closing of the websocket comm server socket", e, LogLevel.WARN);
 		}
 		try {
 			serverThread.join();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//NOSONAR: stopping the server from the run method interrupts the serverThread
 		}
 		running = false;
 	}
@@ -83,36 +77,16 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 	public void setListeners(List<PcscListener> listeners) {
 		this.listeners = listeners;
 	}
-
+	
 	@Override
 	public void run() {
-		byte[] certificateFromStore;
 		
-		AsymmetricKeyParameter key = null;
-		Certificate cert = null;
-		
-		try {
-			certificateFromStore = keyStore.getCertificate("default").getEncoded();
-			TlsCertificate[] certs = new TlsCertificate[1];
-			
-			certs[0] = new BcTlsCertificate(new BcTlsCrypto(new SecureRandom()), certificateFromStore);
-			cert = new Certificate(certs);
-
-			RSAPrivateKey keyFromStore = (RSAPrivateKey) keyStore.getKey("default", keypassword);
-
-			key = new RSAKeyParameters(true, keyFromStore.getModulus(),
-					keyFromStore.getPrivateExponent());
-
-		} catch (CertificateEncodingException | KeyStoreException | UnrecoverableKeyException
-				| NoSuchAlgorithmException | IOException e) {
-			BasicLogger.logException(getClass(), e, LogLevel.ERROR);
-		}
 		
 		try {
 			String name = "PersoSim_" + InetAddress.getLocalHost().getHostName();
 			// Hash not yet in Spec (v0.6), but expected by AusweisApp 2 1.13.5
 			// toLowerCase() currently needed because of parsing bug in AusweisApp 
-			String id = HexString.encode(MessageDigest.getInstance("SHA-256").digest(keyStore.getCertificate("default").getEncoded())).toLowerCase();
+			String id = HexString.encode(MessageDigest.getInstance("SHA-256").digest(remoteIfdConfig.getHostCertificate().getEncoded())).toLowerCase();
 			
 			if (serverSocket != null) {
 				throw new IllegalStateException("Server socket should be null at this point, probably not stopped correctly before resetting");
@@ -137,27 +111,35 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 				announcer = null;
 				
 				if (client != null) {
-					TlsHandshaker handshaker = null;
 					
-					if (isPairing) {
-						handshaker = new PairingServer("4567", cert, key, client);
+					if (pairingCode != null) {
+						handshaker = new PairingServer(pairingCode,remoteIfdConfig, client);
 					} else {
-						handshaker = new DefaultHandshaker(cert, key, client);
+						handshaker = new DefaultHandshaker(remoteIfdConfig, client);
 					}
 					
-					handshaker.performHandshake();
+					boolean handshakeResult = handshaker.performHandshake();
+					if (handshakeResultListener != null) {
+						handshakeResultListener.onHandshakeFinished(handshakeResult);
+					}
 
-					WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, name));
+					if (handshakeResult) {
+						WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, name));
+						
+						websocket.handleConnection();
+						
+						handshaker.closeConnection();	
+					}
 					
-					websocket.handleConnection();
-					
-					handshaker.closeConnection();	
+					if (pairingCode != null) {
+						stop();
+						break;
+					}
 				}
 				
 				
 			}
-			
-		} catch (IOException | CertificateEncodingException | NoSuchAlgorithmException | KeyStoreException e) {
+		} catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}

@@ -1,16 +1,25 @@
  
 package de.persosim.remoteifd.ui.handlers;
 
+import javax.inject.Inject;
+
 import org.eclipse.e4.core.di.annotations.Execute;
+import org.eclipse.e4.ui.model.application.ui.basic.MPart;
+import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.eclipse.swt.widgets.Shell;
 
 import de.persosim.remoteifd.ui.parts.ConfigRemoteIfdDialog;
 
 public class ConfigureRemoteIfdHandler {
+
+	@Inject
+	private EPartService partService;
 	
 	@Execute
 	public void execute(Shell shell) {
-		ConfigRemoteIfdDialog dialog = new ConfigRemoteIfdDialog(shell);
+		// ID of part as defined in fragment.e4xmi application model
+		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
+		ConfigRemoteIfdDialog dialog = new ConfigRemoteIfdDialog(shell, readerPart);
 		dialog.open();
 	}
 		
