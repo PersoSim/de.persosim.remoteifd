@@ -12,7 +12,7 @@ import org.globaltester.logging.tags.LogLevel;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import de.persosim.driver.connector.NativeDriverInterface;
+import de.persosim.driver.connector.IfdInterface;
 import de.persosim.driver.connector.UnsignedInteger;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscCallData;
@@ -280,7 +280,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 
-		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
 		
 		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			UnsignedInteger paceErrorCode = new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4));
@@ -389,7 +389,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 		
-		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
 		
 		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			Map<Byte, UnsignedInteger> defs = new HashMap<>();
@@ -426,7 +426,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 
-		PcscCallResult result = doPcsc(new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
 
 		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			if (PersoSimPcscProcessor.RESULT_NO_ERROR.equals(new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4)))) {
@@ -478,7 +478,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 
 		PcscCallResult result = doPcsc(
-				new PcscCallData(NativeDriverInterface.PCSC_FUNCTION_POWER_ICC, lun, parameters));
+				new PcscCallData(IfdInterface.PCSC_FUNCTION_POWER_ICC, lun, parameters));
 
 		if (!PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			throw new IllegalStateException(
@@ -487,7 +487,7 @@ public class DefaultMessageHandler implements MessageHandler {
 	}
 
 	private byte[] pcscTransmit(byte[] inputApdu) {
-		UnsignedInteger function = new UnsignedInteger(NativeDriverInterface.VALUE_PCSC_FUNCTION_TRANSMIT_TO_ICC);
+		UnsignedInteger function = new UnsignedInteger(IfdInterface.VALUE_PCSC_FUNCTION_TRANSMIT_TO_ICC);
 
 		List<byte[]> parameters = new LinkedList<>();
 

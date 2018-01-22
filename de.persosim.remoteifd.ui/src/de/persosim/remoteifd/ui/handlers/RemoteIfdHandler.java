@@ -9,12 +9,12 @@ import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
-import de.persosim.driver.connector.service.NativeDriverConnector;
+import de.persosim.driver.connector.service.IfdConnector;
 import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.websocket.WebsocketComm;
 
 public class RemoteIfdHandler {
-	NativeDriverConnector connector;
+	IfdConnector connector;
 
 	@Inject
 	private EPartService partService;

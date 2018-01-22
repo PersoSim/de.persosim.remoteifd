@@ -19,8 +19,8 @@ import de.persosim.driver.connector.features.MctUniversal;
 import de.persosim.driver.connector.features.ModifyPinDirect;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.features.VerifyPinDirect;
-import de.persosim.driver.connector.service.NativeDriverConnector;
-import de.persosim.driver.connector.service.NativeDriverConnectorImpl;
+import de.persosim.driver.connector.service.IfdConnector;
+import de.persosim.driver.connector.service.IfdConnectorImpl;
 import de.persosim.driver.connector.ui.ConsoleUi;
 import de.persosim.simulator.PersoSim;
 import de.persosim.simulator.perso.DefaultPersoGt;
@@ -48,7 +48,7 @@ public class Application {
 		
 		SimulatorManager.setSimulator(sim);
 		
-		NativeDriverConnector connector = new NativeDriverConnectorImpl();
+		IfdConnector connector = new IfdConnectorImpl();
 
 		connector.addListener(new DefaultListener());
 		connector.addListener(new VerifyPinDirect(new UnsignedInteger(0x42000DB2)));

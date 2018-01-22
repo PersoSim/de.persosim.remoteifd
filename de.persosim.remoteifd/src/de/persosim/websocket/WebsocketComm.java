@@ -13,11 +13,11 @@ import java.util.List;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
-import de.persosim.driver.connector.NativeDriverComm;
+import de.persosim.driver.connector.IfdComm;
 import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.simulator.utils.HexString;
 
-public class WebsocketComm implements NativeDriverComm, Runnable{
+public class WebsocketComm implements IfdComm, Runnable{
 
 	private static final int DEFAULT_SERVER_PORT = 1234;
 	private boolean running = false;
@@ -150,8 +150,7 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 				
 			}
 		} catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			BasicLogger.logException(getClass(), e, LogLevel.WARN);
 		}
 		
 	}
@@ -162,5 +161,10 @@ public class WebsocketComm implements NativeDriverComm, Runnable{
 			stop();	
 		}
 		listeners = null;
+	}
+
+	@Override
+	public String getName() {
+		return "WEBSOCKET";
 	}
 }
