@@ -41,6 +41,10 @@ public class ConfigRemoteIfdDialog extends Dialog {
 
 	private MPart readerPart;
 	private WebsocketComm comm;
+	private Text readerName;
+	private Table certificatesTable;
+	private Label pin;
+	private Button startPairing;
 
 	public ConfigRemoteIfdDialog(Shell parentShell, MPart readerPart) {
 		super(parentShell);
@@ -57,13 +61,14 @@ public class ConfigRemoteIfdDialog extends Dialog {
 	@Override
 	protected void handleShellCloseEvent() {
 		super.handleShellCloseEvent();
-		comm.stop();
+		if (comm != null) {
+			comm.stop();	
+		}
 	}
 	
 	@Override
 	protected void buttonPressed(int buttonId) {
 		super.buttonPressed(buttonId);
-		comm.stop();
 	}
 	
 	@Override
@@ -73,7 +78,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		Composite container = (Composite) super.createDialogArea(parent);
 		container.setLayout(new GridLayout(2, true));
 
-		Table certificatesTable = new Table(container, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
+		certificatesTable = new Table(container, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
 		GridData layoutData = new GridData(GridData.FILL_BOTH);
 		layoutData.horizontalSpan = 2;
 		layoutData.heightHint = 200;
@@ -87,7 +92,21 @@ public class ConfigRemoteIfdDialog extends Dialog {
 
 		MenuItem delete = new MenuItem(menu, SWT.PUSH);
 		delete.setText("Delete certificate");
-
+		
+		startPairing = new Button(container, SWT.NONE);
+		startPairing.setText("Start pairing");
+		startPairing.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
+		
+		pin = new Label(container, SWT.NONE);
+		pin.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
+		
+		Label readerNameLabel = new Label(container, SWT.NONE);
+		readerNameLabel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
+		readerNameLabel.setText("Reader name:");
+		
+		readerName = new Text(container, SWT.BORDER);
+		String readerNameFromPrefs = PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE);
+		
 		delete.addSelectionListener(new SelectionListener() {
 
 			@Override
@@ -95,6 +114,11 @@ public class ConfigRemoteIfdDialog extends Dialog {
 				Activator.getRemoteIfdConfig().deletePairedCertificate(
 						(Certificate) certificatesTable.getItem(certificatesTable.getSelectionIndex()).getData());
 				refreshTable(certificatesTable);
+
+				
+				if (Activator.getRemoteIfdConfig().getPairedCertificates().isEmpty()) {
+					readerName.setEnabled(true);
+				}
 			}
 
 			@Override
@@ -102,20 +126,6 @@ public class ConfigRemoteIfdDialog extends Dialog {
 				// Do nothing
 			}
 		});
-		
-		Button startPairing = new Button(container, SWT.NONE);
-		startPairing.setText("Start pairing");
-		startPairing.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
-		
-		Label pin = new Label(container, SWT.NONE);
-		pin.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
-		
-		Label readerNameLabel = new Label(container, SWT.NONE);
-		readerNameLabel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
-		readerNameLabel.setText("Reader name:");
-		
-		Text readerName = new Text(container, SWT.NONE);
-		String readerNameFromPrefs = PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE);
 		
 		if (readerNameFromPrefs == null){
 			readerNameFromPrefs = "PersoSim";
@@ -126,11 +136,9 @@ public class ConfigRemoteIfdDialog extends Dialog {
 			}
 		}
 		
-		boolean nameChangeAllowed = Activator.getRemoteIfdConfig().getPairedCertificates().isEmpty();
-		
-		readerName.setText(readerNameFromPrefs);
-		readerName.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
-		readerName.setEnabled(nameChangeAllowed);
+		readerName.setText(readerNameFromPrefs == null ? "" : readerNameFromPrefs);
+		readerName.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
+		readerName.setEnabled(nameChangeAllowed());
 		
 		readerName.addModifyListener(new ModifyListener() {
 			@Override
@@ -140,8 +148,53 @@ public class ConfigRemoteIfdDialog extends Dialog {
 				}
 			}
 		});
+		
+		startPairing.addSelectionListener(new SelectionListener() {
+			
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				if (pin.getText().isEmpty()) {
+					startPairing.setText("Stop pairing");
 
-		String pairingCode = getPairingCode();
+					if (readerPart.getObject() instanceof ReaderPart) {
+						ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
+
+						readerPartObject.switchReaderType(ReaderType.NONE);
+					}
+					String pairingCode = getPairingCode();
+					createCommObject(pairingCode);
+					comm.start();
+					pin.setText("Pairing is active with pin: " + pairingCode);
+					readerName.setEnabled(false);
+				} else {
+					if (comm != null) {
+						comm.stop();	
+					}
+					startPairing.setText("Start pairing");
+					pin.setText("");
+					readerName.setEnabled(true && nameChangeAllowed());
+				}
+
+			}
+
+
+
+			@Override
+			public void widgetDefaultSelected(SelectionEvent e) {
+				// do nothing
+			}
+		});
+
+		return container;
+	}
+	
+	private boolean nameChangeAllowed() {
+		return Activator.getRemoteIfdConfig().getPairedCertificates().isEmpty();
+	}
+
+
+
+	private void createCommObject(String pairingCode) {
 		comm = new WebsocketComm(pairingCode, readerName.getText(), Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
 			
 			@Override
@@ -166,48 +219,13 @@ public class ConfigRemoteIfdDialog extends Dialog {
 						refreshTable(certificatesTable);
 						startPairing.setText("Start pairing");
 						pin.setText("");
-						readerName.setEnabled(true && nameChangeAllowed);
+						readerName.setEnabled(true && nameChangeAllowed());
 					}
 				});
 
 				 
 			}
 		});
-		
-		startPairing.addSelectionListener(new SelectionListener() {
-			
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				if (pin.getText().isEmpty()) {
-					startPairing.setText("Stop pairing");
-
-					if (readerPart.getObject() instanceof ReaderPart) {
-						ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
-
-						readerPartObject.switchReaderType(ReaderType.NONE);
-					}
-					
-					comm.start();
-					pin.setText("Pairing is active with pin: " + pairingCode);
-					readerName.setEnabled(false);
-				} else {
-					if (comm != null) {
-						comm.stop();	
-					}
-					startPairing.setText("Start pairing");
-					pin.setText("");
-					readerName.setEnabled(true && nameChangeAllowed);
-				}
-
-			}
-
-			@Override
-			public void widgetDefaultSelected(SelectionEvent e) {
-				// do nothing
-			}
-		});
-
-		return container;
 	}
 	
 	private static String getPairingCode() {
@@ -218,6 +236,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		certificatesTable.removeAll();
 
 		RemoteIfdConfigManager configManager = Activator.getRemoteIfdConfig();
+		
 		for (Certificate cert : configManager.getPairedCertificates()) {
 			TableItem item = new TableItem(certificatesTable, SWT.NONE);
 			
