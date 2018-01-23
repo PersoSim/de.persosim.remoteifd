@@ -1,5 +1,7 @@
 package de.persosim.remoteifd.ui.parts;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.ThreadLocalRandom;
@@ -7,6 +9,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
@@ -22,10 +26,13 @@ import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.widgets.Text;
 
 import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.driver.connector.ui.parts.ReaderPart.ReaderType;
 import de.persosim.remoteifd.ui.Activator;
+import de.persosim.remoteifd.ui.PreferenceConstants;
+import de.persosim.simulator.preferences.PersoSimPreferenceManager;
 import de.persosim.websocket.HandshakeResultListener;
 import de.persosim.websocket.RemoteIfdConfigManager;
 import de.persosim.websocket.WebsocketComm;
@@ -102,9 +109,40 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		
 		Label pin = new Label(container, SWT.NONE);
 		pin.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
+		
+		Label readerNameLabel = new Label(container, SWT.NONE);
+		readerNameLabel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
+		readerNameLabel.setText("Reader name:");
+		
+		Text readerName = new Text(container, SWT.NONE);
+		String readerNameFromPrefs = PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE);
+		
+		if (readerNameFromPrefs == null){
+			readerNameFromPrefs = "PersoSim";
+			try {
+				readerNameFromPrefs += "_" + InetAddress.getLocalHost().getHostName();
+			} catch (UnknownHostException e) {
+				//NOSONAR: The host name is only used for display purposes
+			}
+		}
+		
+		boolean nameChangeAllowed = Activator.getRemoteIfdConfig().getPairedCertificates().isEmpty();
+		
+		readerName.setText(readerNameFromPrefs);
+		readerName.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
+		readerName.setEnabled(nameChangeAllowed);
+		
+		readerName.addModifyListener(new ModifyListener() {
+			@Override
+			public void modifyText(ModifyEvent e) {
+				if (!readerName.getText().isEmpty()){
+					PersoSimPreferenceManager.storePreference(PreferenceConstants.READER_NAME_PREFERENCE, readerName.getText());	
+				}
+			}
+		});
 
 		String pairingCode = getPairingCode();
-		comm = new WebsocketComm(pairingCode, Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
+		comm = new WebsocketComm(pairingCode, readerName.getText(), Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
 			
 			@Override
 			public void onHandshakeFinished(boolean success) {
@@ -128,6 +166,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 						refreshTable(certificatesTable);
 						startPairing.setText("Start pairing");
 						pin.setText("");
+						readerName.setEnabled(true && nameChangeAllowed);
 					}
 				});
 
@@ -150,13 +189,14 @@ public class ConfigRemoteIfdDialog extends Dialog {
 					
 					comm.start();
 					pin.setText("Pairing is active with pin: " + pairingCode);
-
+					readerName.setEnabled(false);
 				} else {
 					if (comm != null) {
 						comm.stop();	
 					}
 					startPairing.setText("Start pairing");
 					pin.setText("");
+					readerName.setEnabled(true && nameChangeAllowed);
 				}
 
 			}

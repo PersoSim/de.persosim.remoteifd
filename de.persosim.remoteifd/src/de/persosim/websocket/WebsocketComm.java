@@ -30,17 +30,19 @@ public class WebsocketComm implements IfdComm, Runnable{
 	private TlsHandshaker handshaker;
 	private HandshakeResultListener handshakeResultListener;
 	private Thread announcer;
+	private String readerName;
 	
 
 
-	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
+	public WebsocketComm(String pairingCode, String readerName, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
 		this.pairingCode = pairingCode;
 		this.remoteIfdConfig = remoteIfdConfig;
 		this.handshakeResultListener = handshakeResultListener;
+		this.readerName = readerName;
 	}
 	
-	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig) {
-		this(pairingCode, remoteIfdConfig, null);
+	public WebsocketComm(String pairingCode, String readerName, RemoteIfdConfigManager remoteIfdConfig) {
+		this(pairingCode, readerName, remoteIfdConfig, null);
 	}
 
 	@Override
@@ -93,7 +95,9 @@ public class WebsocketComm implements IfdComm, Runnable{
 		
 		
 		try {
-			String name = "PersoSim_" + InetAddress.getLocalHost().getHostName();
+			if (readerName == null){
+				readerName = "PersoSim_" + InetAddress.getLocalHost().getHostName();	
+			}
 			// XXX Hash not yet in Spec (v0.6), but expected by AusweisApp 2 1.13.5
 			// .toLowerCase() needed because AusweisApp does not accept upper case hashes
 			String id = HexString.encode(MessageDigest.getInstance("SHA-256").digest(remoteIfdConfig.getHostCertificate().getEncoded())).toLowerCase();
@@ -107,7 +111,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 			announcer = null;
 			serverSocket = new ServerSocket(DEFAULT_SERVER_PORT);
 			while (!Thread.interrupted() ) {
-				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(name, id, DEFAULT_SERVER_PORT)));
+				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, DEFAULT_SERVER_PORT)));
 				announcer.start();
 				
 				
@@ -115,7 +119,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 				try {
 					 client = serverSocket.accept();
 				} catch (SocketException e) {
-					// This is expected to happen when the WebsocketComm is stopped
+					//NOSONAR: This is expected to happen when the WebsocketComm is stopped
 				}
 				announcer.interrupt();
 				announcer = null;
@@ -134,7 +138,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 					}
 
 					if (handshakeResult) {
-						WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, name));
+						WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
 						
 						websocket.handleConnection();
 						
