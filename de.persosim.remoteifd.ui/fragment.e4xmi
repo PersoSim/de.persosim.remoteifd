@@ -8,8 +8,8 @@
     <elements xsi:type="commands:Handler" xmi:id="_jWP74OZYEee50pt6teHFRg" elementId="de.persosim.remoteifd.ui.handler.useRemoteIfd" contributionURI="bundleclass://de.persosim.remoteifd.ui/de.persosim.remoteifd.ui.handlers.RemoteIfdHandler" command="_af6NUOZYEee50pt6teHFRg"/>
     <elements xsi:type="commands:Handler" xmi:id="_OzqMIOZZEee50pt6teHFRg" elementId="de.persosim.remoteifd.ui.handler.configureRemoteIfd" contributionURI="bundleclass://de.persosim.remoteifd.ui/de.persosim.remoteifd.ui.handlers.ConfigureRemoteIfdHandler" command="_fNn5oOZYEee50pt6teHFRg"/>
   </fragments>
-  <fragments xsi:type="fragment:StringModelFragment" xmi:id="_3hMMMOZNEee50pt6teHFRg" featurename="children" parentElementId="de.persosim.driver.connector.ui.menu.readerType" positionInList="after:de.persosim.driver.connector.ui.handledmenuitem.nativeDriver">
-    <elements xsi:type="menu:HandledMenuItem" xmi:id="_CJkgIOZOEee50pt6teHFRg" elementId="de.persosim.remoteifd.ui.remoteIFD" label="Use Remote IFD" type="Radio" command="_af6NUOZYEee50pt6teHFRg"/>
+  <fragments xsi:type="fragment:StringModelFragment" xmi:id="_3hMMMOZNEee50pt6teHFRg" featurename="children" parentElementId="de.persosim.driver.connector.ui.menu.readerType" positionInList="after:de.persosim.driver.connector.ui.handledmenuitem.virtualDriver">
+    <elements xsi:type="menu:HandledMenuItem" xmi:id="_CJkgIOZOEee50pt6teHFRg" elementId="de.persosim.remoteifd.ui.remoteIFD" label="Use Remote IFD" command="_af6NUOZYEee50pt6teHFRg"/>
   </fragments>
   <fragments xsi:type="fragment:StringModelFragment" xmi:id="_N6ZlsOZVEee50pt6teHFRg" featurename="children" parentElementId="de.persosim.driver.connector.ui.menu.readerType" positionInList="after:de.persosim.driver.connector.ui.menuseparator.configure">
     <elements xsi:type="menu:HandledMenuItem" xmi:id="_aUm9oOaXEeeaJIdYo5u99g" elementId="de.persosim.remoteifd.ui.handledmenuitem.ConfigureRemoteIfd" label="Configure RemoteIFD" command="_fNn5oOZYEee50pt6teHFRg"/>
