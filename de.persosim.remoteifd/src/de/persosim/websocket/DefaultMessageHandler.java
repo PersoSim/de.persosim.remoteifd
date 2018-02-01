@@ -117,16 +117,12 @@ public class DefaultMessageHandler implements MessageHandler {
 			setPositiveResult(response);
 			break;
 		case IFD_CONNECT:
-			String slotName = jsonMessage.getString(SLOT_NAME);
-
 			// TODO check for correct slot name
 			
 			response.put(MSG, IFD_CONNECT_RESPONSE);
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
-			// Governikus AusweisApp expects slot handle == slot name
-			// slotHandle = getSlotName(10);
-			this.slotHandle = slotName;
+			slotHandle = getRandomString(10);
 
 			response.put(SLOT_HANDLE, this.slotHandle);
 
@@ -523,7 +519,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 	// will be used when AusweisApp handles slot names correctly
 	@SuppressWarnings("unused")
-	private String getSlotName(int length) {
+	private String getRandomString(int length) {
 		String result = "";
 		for (int i = 0; i < length; i++) {
 			result += SLOT_HANDLE_CHARACTERS
