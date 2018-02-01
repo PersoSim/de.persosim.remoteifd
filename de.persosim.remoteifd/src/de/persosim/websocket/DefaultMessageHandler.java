@@ -207,8 +207,8 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
 			response.put(CONNECTED_READER, true);
 			response.put(CARD_AVAILABLE, getCardStatus());
-			response.put(EFATR, "");
-			response.put(EFDIR, "");
+			response.put(EFATR, getNull());
+			response.put(EFDIR, getNull());
 			break;
 		case IFD_ESTABLISH_PACE_CHANNEL:
 			response.put(MSG, IFD_ESTABLISH_PACE_CHANNEL_RESPONSE);
