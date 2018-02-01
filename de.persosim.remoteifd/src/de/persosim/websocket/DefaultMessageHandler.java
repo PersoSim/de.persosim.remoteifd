@@ -62,7 +62,6 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String MAX_APDU_LENGTH = "MaxAPDULength";
 	private static final String PIN_CAPABILITIES = "PINCapabilities";
 	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultmajor#ok";
-	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultminor#ok";
 	
 	
 	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
@@ -115,8 +114,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put(IFD_NAME, deviceName);
 
-			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
-			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
+			setPositiveResult(response);
 			break;
 		case IFD_CONNECT:
 			String slotName = jsonMessage.getString(SLOT_NAME);
@@ -134,8 +132,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			pcscPowerIcc(PcscConstants.IFD_POWER_UP);
 
-			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
-			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
+			setPositiveResult(response);
 			break;
 		case IFD_DISCONNECT:
 
@@ -145,9 +142,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(SLOT_HANDLE, this.slotHandle);
 
 			pcscPowerIcc(PcscConstants.IFD_POWER_DOWN);
-
-			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
-			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
+			setPositiveResult(response);
 
 			this.slotHandle = null;
 			break;
@@ -158,8 +153,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
-			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
+			setPositiveResult(response);
 
 			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
 
@@ -229,8 +223,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put("OutputData", HexString.encode(
 					pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")))));
 
-			response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
-			response.put(RESULT_MINOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMINOR_OK);
+			setPositiveResult(response);
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			break;
@@ -241,6 +234,16 @@ public class DefaultMessageHandler implements MessageHandler {
 		return response.toString();
 	}
 	
+	private void setPositiveResult(JSONObject response) {
+		response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
+		response.put(RESULT_MINOR, getNull());
+	}
+
+	private Object getNull() {
+		//FIXME: WHY?
+		return null;
+	}
+
 	private boolean getCardStatus() {
 		// As long as this is used only in the PersoSim-GUI application, this is a reasonable assumption
 		return true;
