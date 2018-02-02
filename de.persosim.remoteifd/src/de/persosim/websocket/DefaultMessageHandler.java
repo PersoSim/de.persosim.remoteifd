@@ -45,6 +45,7 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String IFD_CONNECT_RESPONSE = "IFDConnectResponse";
 	private static final String IFD_DISCONNECT = "IFDDisconnect";
 	private static final String IFD_DISCONNECT_RESPONSE = "IFDDisconnectResponse";
+	private static final String IFD_ERROR = "IFDERROR";
 	
 	private static final String MSG = "msg";
 	private static final String RESULT_MINOR = "ResultMinor";
@@ -61,7 +62,6 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String CONNECTED_READER = "ConnectedReader";
 	private static final String MAX_APDU_LENGTH = "MaxAPDULength";
 	private static final String PIN_CAPABILITIES = "PINCapabilities";
-	private static final String HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK = "http://www.bsi.bund.de/ecard/api/1.1/resultmajor#ok";
 	
 	
 	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
@@ -118,7 +118,6 @@ public class DefaultMessageHandler implements MessageHandler {
 			break;
 		case IFD_CONNECT:
 			// TODO check for correct slot name
-			
 			response.put(MSG, IFD_CONNECT_RESPONSE);
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
@@ -196,7 +195,6 @@ public class DefaultMessageHandler implements MessageHandler {
 			break;
 		case IFD_GET_STATUS:
 			response.put(MSG, "IFDStatus");
-
 			// TODO Handle differing slot handle
 			
 			response.put(CONTEXT_HANDLE, this.contextHandle);
@@ -223,6 +221,10 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			break;
+		default:
+			response.put(MSG, IFD_ERROR);
+			response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_ERROR);
+			response.put(RESULT_MINOR, Tr03112codes.TERMINAL_RESULT_TERMINAL_UNKNOWN_ACTION);
 		}
 
 		BasicLogger.log(getClass(), "Send JSON message: " + System.lineSeparator() + response.toString(),
@@ -231,12 +233,15 @@ public class DefaultMessageHandler implements MessageHandler {
 	}
 	
 	private void setPositiveResult(JSONObject response) {
-		response.put(RESULT_MAJOR, HTTP_WWW_BSI_BUND_DE_ECARD_API_1_1_RESULTMAJOR_OK);
+		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
 		response.put(RESULT_MINOR, getNull());
 	}
 
+	/**
+	 * {@link JSONObject#put(String, Object) is ambiguous for null}
+	 * @return
+	 */
 	private Object getNull() {
-		//FIXME: WHY?
 		return null;
 	}
 
