@@ -22,6 +22,7 @@ import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.driver.connector.pcsc.SimplePcscCallResult;
 import de.persosim.simulator.apdu.CommandApdu;
 import de.persosim.simulator.apdu.CommandApduFactory;
+import de.persosim.simulator.exception.NotImplementedException;
 import de.persosim.simulator.platform.Iso7816Lib;
 import de.persosim.simulator.tlv.ConstructedTlvDataObject;
 import de.persosim.simulator.tlv.PrimitiveTlvDataObject;
@@ -30,6 +31,8 @@ import de.persosim.simulator.tlv.TlvDataObject;
 import de.persosim.simulator.tlv.TlvDataObjectContainer;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
+import de.persosim.websocket.ccid.PcToReaderSecure;
+import de.persosim.websocket.ccid.ReaderToPcDatablock;
 
 public class DefaultMessageHandler implements MessageHandler {
 
@@ -46,6 +49,8 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String IFD_DISCONNECT = "IFDDisconnect";
 	private static final String IFD_DISCONNECT_RESPONSE = "IFDDisconnectResponse";
 	private static final String IFD_ERROR = "IFDERROR";
+	private static final String IFD_MODIFY_PIN = "IFDModifyPIN";
+	private static final String IFD_MODIFY_PIN_RESPONSE = "IFDModifyPINResponse";
 	
 	private static final String MSG = "msg";
 	private static final String RESULT_MINOR = "ResultMinor";
@@ -219,7 +224,18 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			setPositiveResult(response);
 
+			break;
+		case IFD_MODIFY_PIN:
+			response.put(MSG, IFD_MODIFY_PIN_RESPONSE);
+
 			response.put(CONTEXT_HANDLE, this.contextHandle);
+			response.put(SLOT_HANDLE, this.slotHandle);
+
+			response.put("OutputData", HexString.encode(
+					pcscPerformModifyPin(HexString.toByteArray(jsonMessage.getString("InputData")))));
+
+			setPositiveResult(response);
+
 			break;
 		default:
 			response.put(MSG, IFD_ERROR);
@@ -231,7 +247,7 @@ public class DefaultMessageHandler implements MessageHandler {
 				LogLevel.TRACE);
 		return response.toString();
 	}
-	
+
 	private void setPositiveResult(JSONObject response) {
 		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
 		response.put(RESULT_MINOR, getNull());
@@ -300,7 +316,38 @@ public class DefaultMessageHandler implements MessageHandler {
 		throw new IllegalStateException("Call for performing establish pace channel was not successful: "
 				+ result.getResponseCode().getAsHexString());
 	}
+
+	private byte [] pcscPerformModifyPin(byte[] byteArray) {
+		PcToReaderSecure secure = new PcToReaderSecure(byteArray);
+		
+		return handleModifyPinCcid(secure);
+	}
 	
+	private byte[] handleModifyPinCcid(PcToReaderSecure secure) {
+		
+
+		byte [] abPinOperationData = secure.getAbData();
+		
+		switch (abPinOperationData[0]) {
+		case 0:
+			handlePinVerification(Arrays.copyOfRange(abPinOperationData, 1, abPinOperationData.length));
+			break;
+		case 1:
+			handlePinModification(Arrays.copyOfRange(abPinOperationData, 1, abPinOperationData.length));
+			break;
+		default:
+			throw new NotImplementedException("No implementation for other operations");
+		}
+		
+		
+		ReaderToPcDatablock datablock = new ReaderToPcDatablock();
+		return datablock.toByteArray();
+	}
+
+	private void handlePinModification(byte[] copyOfRange) {
+		
+	}
+
 	private byte[] convertPcscToCcidOutputBuffer(UnsignedInteger errorCode, byte[] pcscOutputBuffer) {
 		int offset = 0;
 		short status = Utils.getShortFromUnsignedByteArray(Arrays.copyOfRange(pcscOutputBuffer, offset, offset += 2));
