@@ -171,4 +171,9 @@ public class WebsocketComm implements IfdComm, Runnable{
 	public String getName() {
 		return "WEBSOCKET";
 	}
+
+	@Override
+	public String getUserString() {
+		return "SaK interface";
+	}
 }
