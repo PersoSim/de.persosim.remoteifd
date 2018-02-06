@@ -239,6 +239,9 @@ public class DefaultMessageHandler implements MessageHandler {
 			setOkResult(response);
 
 			break;
+		case IFD_ERROR:
+			BasicLogger.log(getClass(), "Received error message: " + System.lineSeparator() + jsonMessage, LogLevel.WARN);
+			return null;
 		default:
 			response.put(MSG, IFD_ERROR);
 			response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_ERROR);

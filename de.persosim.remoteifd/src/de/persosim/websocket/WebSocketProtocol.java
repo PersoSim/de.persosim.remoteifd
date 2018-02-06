@@ -157,7 +157,7 @@ public class WebSocketProtocol {
 				throw new IllegalStateException("Reading of handshake message failed with exception", e);
 			}
 			
-		} while (!(indexToDelimiter == cs.length));
+		} while (indexToDelimiter != cs.length);
 		
 		return data;
 	}
@@ -166,13 +166,11 @@ public class WebSocketProtocol {
 		switch (curFrame.getOpcode()) {
 		case CLOSE:
 			// Echo first to bytes on close (status code, see RFC6455 5.5.1)
-			// FIXME allow closed socket on other side
 			if (curFrame.getPayload().length > 2) {
 				writeFrame(createBasicFrame(Opcode.CLOSE,
 						new byte[] { curFrame.getPayload()[1], curFrame.getPayload()[2] }));
 
 			} else {
-
 				writeFrame(createBasicFrame(Opcode.CLOSE, new byte[0]));
 			}
 			return ConnectionState.CLOSED;
@@ -180,7 +178,11 @@ public class WebSocketProtocol {
 			writeFrame(createBasicFrame(Opcode.PONG, curFrame.getPayload()));
 			return ConnectionState.ESTABLISHED;
 		case TEXT:
-			writeFrame(handleTextFrame(curFrame));
+			Frame responseFrame = handleTextFrame(curFrame);
+			if (responseFrame != null) {
+				writeFrame(responseFrame);	
+			}
+			
 			return ConnectionState.ESTABLISHED;
 		default:
 			BasicLogger.log(getClass(), "Got message with unhandled opcode: " + curFrame.toString(), LogLevel.WARN);
@@ -203,8 +205,13 @@ public class WebSocketProtocol {
 	}
 
 	private Frame handleTextFrame(Frame frame) {
-		return createBasicFrame(Opcode.TEXT, messageHandler
-				.message(new String(frame.getPayload(), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+		String message = messageHandler
+				.message(new String(frame.getPayload(), StandardCharsets.UTF_8));
+
+		if (message != null) {
+			return createBasicFrame(Opcode.TEXT, message.getBytes(StandardCharsets.UTF_8));
+		}
+		return null;
 	}
 
 	private void writeFrame(Frame frame) {
