@@ -14,6 +14,7 @@ import org.json.JSONObject;
 
 import de.persosim.driver.connector.IfdInterface;
 import de.persosim.driver.connector.UnsignedInteger;
+import de.persosim.driver.connector.features.ModifyPinDirect;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscCallData;
 import de.persosim.driver.connector.pcsc.PcscCallResult;
@@ -22,7 +23,6 @@ import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.driver.connector.pcsc.SimplePcscCallResult;
 import de.persosim.simulator.apdu.CommandApdu;
 import de.persosim.simulator.apdu.CommandApduFactory;
-import de.persosim.simulator.exception.NotImplementedException;
 import de.persosim.simulator.platform.Iso7816Lib;
 import de.persosim.simulator.tlv.ConstructedTlvDataObject;
 import de.persosim.simulator.tlv.PrimitiveTlvDataObject;
@@ -31,8 +31,6 @@ import de.persosim.simulator.tlv.TlvDataObject;
 import de.persosim.simulator.tlv.TlvDataObjectContainer;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
-import de.persosim.websocket.ccid.PcToReaderSecure;
-import de.persosim.websocket.ccid.ReaderToPcDatablock;
 
 public class DefaultMessageHandler implements MessageHandler {
 
@@ -58,7 +56,7 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String SLOT_HANDLE = "SlotHandle";
 	private static final String CONTEXT_HANDLE = "ContextHandle";
 	private static final String SLOT_NAME = "SlotName";
-	private static final String COMMAND_APDUS = "CommandAPDUs";
+	private static final String COMMAND_APDUS = "CommandAPDUs"; 
 	private static final String INPUT_APDU = "InputAPDU";
 	private static final String ACCEPTABLE_STATUS_CODES = "AcceptableStatusCodes";
 	private static final String EFDIR = "EFDIR";
@@ -231,8 +229,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			response.put("OutputData", HexString.encode(
-					pcscPerformModifyPin(HexString.toByteArray(jsonMessage.getString("InputData")))));
+			response.put("OutputData", HexString.encode(pcscPerformModifyPin(HexString.toByteArray(jsonMessage.getString("InputData")))));
 
 			setPositiveResult(response);
 
@@ -318,34 +315,26 @@ public class DefaultMessageHandler implements MessageHandler {
 	}
 
 	private byte [] pcscPerformModifyPin(byte[] byteArray) {
-		PcToReaderSecure secure = new PcToReaderSecure(byteArray);
+		byte [] failureResult = Utils.toUnsignedByteArray(0x6F00);
 		
-		return handleModifyPinCcid(secure);
-	}
-	
-	private byte[] handleModifyPinCcid(PcToReaderSecure secure) {
-		
-
-		byte [] abPinOperationData = secure.getAbData();
-		
-		switch (abPinOperationData[0]) {
-		case 0:
-			handlePinVerification(Arrays.copyOfRange(abPinOperationData, 1, abPinOperationData.length));
-			break;
-		case 1:
-			handlePinModification(Arrays.copyOfRange(abPinOperationData, 1, abPinOperationData.length));
-			break;
-		default:
-			throw new NotImplementedException("No implementation for other operations");
+		if (byteArray.length < 4) {
+			return failureResult;
 		}
 		
+		if (!Arrays.equals(Arrays.copyOfRange(byteArray, 0, 4), HexString.toByteArray("FF9A0410"))) {
+			return failureResult;
+		}
 		
-		ReaderToPcDatablock datablock = new ReaderToPcDatablock();
-		return datablock.toByteArray();
-	}
+		UnsignedInteger controlCode = pcscPerformGetFeatures().get(ModifyPinDirect.FEATURE_TAG);
 
-	private void handlePinModification(byte[] copyOfRange) {
+		List<byte[]> parameters = new LinkedList<>();
+		parameters.add(controlCode.getAsByteArray());
+		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
+		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 		
+		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
+		
+		return result.getData().get(0);
 	}
 
 	private byte[] convertPcscToCcidOutputBuffer(UnsignedInteger errorCode, byte[] pcscOutputBuffer) {
