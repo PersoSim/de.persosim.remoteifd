@@ -95,17 +95,17 @@ public class DefaultMessageHandler implements MessageHandler {
 
 		String messageType = jsonMessage.getString(MSG);
 
-		String contextHandle = null;
+		String incomingContextHandle = null;
 		if (jsonMessage.has(CONTEXT_HANDLE)) {
-			contextHandle = jsonMessage.getString(CONTEXT_HANDLE);
+			incomingContextHandle = jsonMessage.getString(CONTEXT_HANDLE);
 		}
 
-		String slotHandle = null;
+		String incomingSlotHandle = null;
 		if (jsonMessage.has(SLOT_HANDLE)) {
-			slotHandle = jsonMessage.getString(SLOT_HANDLE);
+			incomingSlotHandle = jsonMessage.getString(SLOT_HANDLE);
 		}
 		
-		BasicLogger.log(getClass(), "Received Json message with type: " + messageType + ", ContextHandle: " + contextHandle + ", SlotHandle: " + slotHandle, LogLevel.TRACE);
+		BasicLogger.log(getClass(), "Received Json message with type: " + messageType + ", ContextHandle: " + incomingContextHandle + ", SlotHandle: " + incomingSlotHandle, LogLevel.TRACE);
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {
@@ -124,7 +124,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(MSG, IFD_CONNECT_RESPONSE);
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 
-			slotHandle = getRandomString(10);
+			this.slotHandle = getRandomString(10);
 
 			response.put(SLOT_HANDLE, this.slotHandle);
 
@@ -155,44 +155,8 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
 
-			List<String> responseApdus = new LinkedList<>();
-
-			for (int i = 0; i < commandApdus.length(); i++) {
-				JSONObject currentApdu = commandApdus.getJSONObject(i);
-				byte[] inputApdu = HexString.toByteArray(currentApdu.getString(INPUT_APDU));
-
-				Number[] acceptableStatusCodes = null;
-				if (!currentApdu.isNull(ACCEPTABLE_STATUS_CODES)) {
-					JSONArray statusCodes = currentApdu.getJSONArray(ACCEPTABLE_STATUS_CODES);
-					acceptableStatusCodes = getStatusCodesFromJson(statusCodes);
-				}
-
-				byte[] responseApdu = pcscTransmit(inputApdu);
-
-				short actualStatusCode = Iso7816Lib.getStatusWord(responseApdu);
-
-				boolean statusCodeAcceptable = true;
-
-				if (acceptableStatusCodes != null) {
-					statusCodeAcceptable = false;
-					for (Number currentAcceptable : acceptableStatusCodes) {
-						boolean isByteAndAcceptable = currentAcceptable instanceof Byte
-								&& currentAcceptable.equals(Utils.getFirstByteOfShort(actualStatusCode));
-						boolean isShortAndAcceptable = currentAcceptable instanceof Short
-								&& currentAcceptable.equals(actualStatusCode);
-						if (isByteAndAcceptable || isShortAndAcceptable) {
-							statusCodeAcceptable = true;
-							break;
-						}
-					}
-				}
-
-				if (!statusCodeAcceptable) {
-					break;
-				}
-				responseApdus.add(HexString.encode(responseApdu));
-			}
-
+			List<String> responseApdus = handleApdus(commandApdus);
+			
 			response.put("ResponseAPDUs", responseApdus);
 			
 			break;
@@ -240,7 +204,6 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			break;
 		case IFD_ERROR:
-			BasicLogger.log(getClass(), "Received error message: " + System.lineSeparator() + jsonMessage, LogLevel.WARN);
 			return null;
 		default:
 			response.put(MSG, IFD_ERROR);
@@ -251,6 +214,48 @@ public class DefaultMessageHandler implements MessageHandler {
 		BasicLogger.log(getClass(), "Send JSON message: " + System.lineSeparator() + response.toString(),
 				LogLevel.TRACE);
 		return response.toString();
+	}
+
+	private List<String> handleApdus(JSONArray commandApdus) {
+		List<String> responseApdus = new LinkedList<>();
+		for (int i = 0; i < commandApdus.length(); i++) {
+			JSONObject currentApdu = commandApdus.getJSONObject(i);
+			byte[] inputApdu = HexString.toByteArray(currentApdu.getString(INPUT_APDU));
+
+			Number[] acceptableStatusCodes = null;
+			if (!currentApdu.isNull(ACCEPTABLE_STATUS_CODES)) {
+				JSONArray statusCodes = currentApdu.getJSONArray(ACCEPTABLE_STATUS_CODES);
+				acceptableStatusCodes = getStatusCodesFromJson(statusCodes);
+			}
+
+			byte[] responseApdu = pcscTransmit(inputApdu);
+
+			short actualStatusCode = Iso7816Lib.getStatusWord(responseApdu);
+
+			if (!checkStatusCodes(acceptableStatusCodes, actualStatusCode)) {
+				break;
+			}
+			responseApdus.add(HexString.encode(responseApdu));
+		}
+		return responseApdus;
+	}
+
+	private boolean checkStatusCodes(Number[] acceptableStatusCodes, short actualStatusCode) {
+		boolean statusCodeAcceptable = true;
+		if (acceptableStatusCodes != null) {
+			statusCodeAcceptable  = false;
+			for (Number currentAcceptable : acceptableStatusCodes) {
+				boolean isByteAndAcceptable = currentAcceptable instanceof Byte
+						&& currentAcceptable.equals(Utils.getFirstByteOfShort(actualStatusCode));
+				boolean isShortAndAcceptable = currentAcceptable instanceof Short
+						&& currentAcceptable.equals(actualStatusCode);
+				if (isByteAndAcceptable || isShortAndAcceptable) {
+					statusCodeAcceptable = true;
+					break;
+				}
+			}
+		}
+		return statusCodeAcceptable;
 	}
 
 	private void setErrorResult(JSONObject response, String resultMinor) {
@@ -364,7 +369,6 @@ public class DefaultMessageHandler implements MessageHandler {
 		byte [] carPrevious = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 1);
 		offset += carPrevious.length + 1;
 		byte [] idicc = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 2);
-		offset += idicc.length + 1;
 
 		
 		TlvDataObject errorCodeTlv = new ConstructedTlvDataObject(TlvConstants.TAG_A1, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, errorCode.getAsByteArray()));
@@ -372,13 +376,13 @@ public class DefaultMessageHandler implements MessageHandler {
 		TlvDataObject cardAccessTlv = new ConstructedTlvDataObject(TlvConstants.TAG_A3, new ConstructedTlvDataObject(cardAccess));
 		ConstructedTlvDataObject sequence = new ConstructedTlvDataObject(TlvConstants.TAG_SEQUENCE, errorCodeTlv, statusTlv, cardAccessTlv);
 		
-		if (idicc != null && idicc.length > 0) {
+		if (idicc.length > 0) {
 			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A4, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, idicc)));
 		}		
-		if (carCurrent != null && carCurrent.length > 0) {
+		if (carCurrent.length > 0) {
 			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A5, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, carCurrent)));
 		}		
-		if (carPrevious != null && carPrevious.length > 0) {
+		if (carPrevious.length > 0) {
 			sequence.addTlvDataObject(new ConstructedTlvDataObject(TlvConstants.TAG_A6, new PrimitiveTlvDataObject(TlvConstants.TAG_OCTET_STRING, carPrevious)));
 		}
 		
