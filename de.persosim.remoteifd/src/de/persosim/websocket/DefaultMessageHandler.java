@@ -117,7 +117,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put(IFD_NAME, deviceName);
 
-			setPositiveResult(response);
+			setOkResult(response);
 			break;
 		case IFD_CONNECT:
 			// TODO check for correct slot name
@@ -130,7 +130,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			pcscPowerIcc(PcscConstants.IFD_POWER_UP);
 
-			setPositiveResult(response);
+			setOkResult(response);
 			break;
 		case IFD_DISCONNECT:
 
@@ -140,7 +140,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(SLOT_HANDLE, this.slotHandle);
 
 			pcscPowerIcc(PcscConstants.IFD_POWER_DOWN);
-			setPositiveResult(response);
+			setOkResult(response);
 
 			this.slotHandle = null;
 			break;
@@ -151,7 +151,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			setPositiveResult(response);
+			setOkResult(response);
 
 			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
 
@@ -217,10 +217,15 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			response.put("OutputData", HexString.encode(
-					pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")))));
-
-			setPositiveResult(response);
+			byte[] pcscPerformEstablishPaceChannel = pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")));
+			
+			if (pcscPerformEstablishPaceChannel == null) {
+				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_ACCESS_ERROR);
+			} else {
+				response.put("OutputData", HexString.encode(
+						pcscPerformEstablishPaceChannel));
+				setOkResult(response);
+			}
 
 			break;
 		case IFD_MODIFY_PIN:
@@ -231,7 +236,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			response.put("OutputData", HexString.encode(pcscPerformModifyPin(HexString.toByteArray(jsonMessage.getString("InputData")))));
 
-			setPositiveResult(response);
+			setOkResult(response);
 
 			break;
 		default:
@@ -245,7 +250,12 @@ public class DefaultMessageHandler implements MessageHandler {
 		return response.toString();
 	}
 
-	private void setPositiveResult(JSONObject response) {
+	private void setErrorResult(JSONObject response, String resultMinor) {
+		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_ERROR);
+		response.put(RESULT_MINOR, resultMinor);
+	}
+
+	private void setOkResult(JSONObject response) {
 		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
 		response.put(RESULT_MINOR, getNull());
 	}
@@ -292,7 +302,11 @@ public class DefaultMessageHandler implements MessageHandler {
 		parameters.add(controlCode.getAsByteArray());
 		
 		if (!apdu.getCommandData().isEmpty()) {
-			parameters.add(convertCcidToPcscInputBuffer(apdu));
+			byte[] convertCcidToPcscInputBuffer = convertCcidToPcscInputBuffer(apdu);
+			if (convertCcidToPcscInputBuffer == null) {
+				return null;
+			}
+			parameters.add(convertCcidToPcscInputBuffer);
 		}
 		
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
@@ -381,6 +395,8 @@ public class DefaultMessageHandler implements MessageHandler {
 		case CCID_FUNCTION_ESTABLISH_PACE_CHANNEL:
 			function = PersoSimPcscProcessor.FUNCTION_ESTABLISH_PACE_CHANNEL;
 			break;
+		default:
+			return null;
 		}
 		
 		TlvDataObjectContainer inputData = apdu.getCommandDataObjectContainer();
