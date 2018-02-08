@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
@@ -27,7 +26,6 @@ public class WebsocketComm implements IfdComm, Runnable{
 	private Thread serverThread;
 	private ServerSocket serverSocket;
 	private RemoteIfdConfigManager remoteIfdConfig;
-	private TlsHandshaker handshaker;
 	private HandshakeResultListener handshakeResultListener;
 	private Thread announcer;
 	private String readerName;
@@ -75,6 +73,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 			}
 		} catch (InterruptedException e) {
 			//NOSONAR: stopping the server from the run method interrupts the serverThread
+			Thread.currentThread().interrupt();
 		}
 		BasicLogger.log(getClass(), "WebsocketComm has been stopped", LogLevel.DEBUG);
 		running = false;
@@ -116,45 +115,44 @@ public class WebsocketComm implements IfdComm, Runnable{
 				
 				
 				Socket client = null;
-				try {
-					 client = serverSocket.accept();
-				} catch (SocketException e) {
-					//NOSONAR: This is expected to happen when the WebsocketComm is stopped
-				}
+				client = serverSocket.accept();
+					 
 				announcer.interrupt();
 				announcer = null;
-				
-				if (client != null) {
 					
-					if (pairingCode != null) {
-						handshaker = new PairingServer(pairingCode,remoteIfdConfig, client);
-					} else {
-						handshaker = new DefaultHandshaker(remoteIfdConfig, client);
-					}
-					
-					boolean handshakeResult = handshaker.performHandshake();
-					if (handshakeResultListener != null) {
-						handshakeResultListener.onHandshakeFinished(handshakeResult);
-					}
-
-					if (handshakeResult) {
-						WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
-						
-						websocket.handleConnection();
-						
-						handshaker.closeConnection();	
-					}
-					
-					if (pairingCode != null) {
-						stop();
-						break;
-					}
+				TlsHandshaker handshaker;
+				if (pairingCode != null) {
+					handshaker = new PairingServer(pairingCode, remoteIfdConfig, client);
+				} else {
+					handshaker = new DefaultHandshaker(remoteIfdConfig, client);
 				}
-				
+
+				boolean handshakeResult = handshaker.performHandshake();
+				if (handshakeResultListener != null) {
+					handshakeResultListener.onHandshakeFinished(handshakeResult);
+				}
+
+				if (handshakeResult) {
+					WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(),
+							handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
+
+					websocket.handleConnection();
+
+					handshaker.closeConnection();
+				}
+
+				if (pairingCode != null) {
+					stop();
+					break;
+				}
 				
 			}
 		} catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
 			BasicLogger.logException(getClass(), e, LogLevel.WARN);
+		} finally {
+			if (announcer != null) {
+				announcer.interrupt();	
+			}
 		}
 		
 	}

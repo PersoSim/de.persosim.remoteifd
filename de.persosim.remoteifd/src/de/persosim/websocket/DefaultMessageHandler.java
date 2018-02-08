@@ -1,6 +1,7 @@
 package de.persosim.websocket;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -77,9 +78,9 @@ public class DefaultMessageHandler implements MessageHandler {
 	private String deviceName;
 
 	UnsignedInteger lun = new UnsignedInteger(1);
-	private String slotName;
+	private String slotName = "PersoSim Slot 1";
 
-	private static String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
+	private static final String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
 
 	public DefaultMessageHandler(List<PcscListener> listeners, String deviceName) {
 		this.listeners = listeners;
@@ -120,10 +121,9 @@ public class DefaultMessageHandler implements MessageHandler {
 			setOkResult(response);
 			break;
 		case IFD_CONNECT:
-			// TODO check for correct slot name
 			response.put(MSG, IFD_CONNECT_RESPONSE);
 			response.put(CONTEXT_HANDLE, this.contextHandle);
-
+			this.slotName = jsonMessage.getString(SLOT_NAME);
 			this.slotHandle = getRandomString(10);
 
 			response.put(SLOT_HANDLE, this.slotHandle);
@@ -151,30 +151,18 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			setOkResult(response);
-
 			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
 
 			List<String> responseApdus = handleApdus(commandApdus);
 			
 			response.put("ResponseAPDUs", responseApdus);
+
+			setOkResult(response);
 			
 			break;
 		case IFD_GET_STATUS:
-			response.put(MSG, "IFDStatus");
-			// TODO Handle differing slot handle
-			
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			this.slotName = "PersoSim Slot 1";
-			response.put(SLOT_NAME, this.slotName);
-
-			response.put(PIN_CAPABILITIES, convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
-			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
-			response.put(CONNECTED_READER, true);
-			response.put(CARD_AVAILABLE, getCardStatus());
-			response.put(EFATR, getNull());
-			response.put(EFDIR, getNull());
-			break;
+			String incomingSlotName = jsonMessage.getString(SLOT_NAME);
+			return getStatusMessage(incomingSlotName);
 		case IFD_ESTABLISH_PACE_CHANNEL:
 			response.put(MSG, IFD_ESTABLISH_PACE_CHANNEL_RESPONSE);
 
@@ -322,13 +310,12 @@ public class DefaultMessageHandler implements MessageHandler {
 		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
 		
 		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
-			UnsignedInteger paceErrorCode = new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4));
-			if (PersoSimPcscProcessor.RESULT_NO_ERROR.equals(paceErrorCode)) {
-				if (result.getData().get(0).length > 6) {
-					return convertPcscToCcidOutputBuffer(paceErrorCode, Arrays.copyOfRange(result.getData().get(0), 6, result.getData().get(0).length));	
-				} else {
-					return null;
-				}
+			UnsignedInteger paceStatusCode = new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4));
+			if (result.getData().get(0).length > 6) {
+				return convertPcscToCcidOutputBuffer(paceStatusCode,
+						Arrays.copyOfRange(result.getData().get(0), 6, result.getData().get(0).length));
+			} else {
+				return null;
 			}
 			
 		}
@@ -360,8 +347,8 @@ public class DefaultMessageHandler implements MessageHandler {
 	}
 
 	private byte[] convertPcscToCcidOutputBuffer(UnsignedInteger errorCode, byte[] pcscOutputBuffer) {
-		int offset = 0;
-		short status = Utils.getShortFromUnsignedByteArray(Arrays.copyOfRange(pcscOutputBuffer, offset, offset += 2));
+		int offset = 2;
+		short status = Utils.getShortFromUnsignedByteArray(Arrays.copyOfRange(pcscOutputBuffer, 0, offset));
 		byte [] cardAccess = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 2);
 		offset += cardAccess.length + 2;
 		byte [] carCurrent = Utils.getValueFlippedByteOrder(pcscOutputBuffer, offset, 1);
@@ -456,7 +443,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		
 		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
 			Map<Byte, UnsignedInteger> defs = new HashMap<>();
-			if (result.getData().size() > 0) {
+			if (!result.getData().isEmpty()) {
 				byte[] features = result.getData().get(0);
 
 				for (int i = 0; i < features.length; i += 6) {
@@ -491,42 +478,34 @@ public class DefaultMessageHandler implements MessageHandler {
 
 		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, lun, parameters));
 
-		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
-			if (PersoSimPcscProcessor.RESULT_NO_ERROR.equals(new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4)))) {
-				if (result.getData().size() > 0) {
-					return Arrays.copyOfRange(result.getData().get(0), 6, 8);	
-				}
-			}
-			
+		if (PcscConstants.IFD_SUCCESS.equals(result.getResponseCode()) && PersoSimPcscProcessor.RESULT_NO_ERROR
+				.equals(new UnsignedInteger(Arrays.copyOfRange(result.getData().get(0), 0, 4))) && !result.getData().isEmpty()) {
+			return Arrays.copyOfRange(result.getData().get(0), 6, 8);
 		}
-		throw new IllegalStateException("Call for performing establish pace channel was not successful: "
+		
+		throw new IllegalStateException("Call for performing get reader pace capabilities was not successful: "
 				+ result.getResponseCode().getAsHexString());
 	}
 
 	private PcscCallResult doPcsc(PcscCallData callData) {
 		PcscCallResult result = null;
-		try {
-			if (listeners != null) {
-				for (PcscListener listener : listeners) {
-					try {
-						PcscCallResult currentResult = listener.processPcscCall(callData);
-						if (result == null && currentResult != null) {
-							// ignore all but the first result
-							result = currentResult;
-						}
-					} catch (RuntimeException e) {
-						BasicLogger.logException(getClass(),
-								"Something went wrong while processing of the PCSC data by listener \""
-										+ listener.getClass().getName() + "\"!\"",
-								e, LogLevel.ERROR);
+		if (listeners != null) {
+			for (PcscListener listener : listeners) {
+				try {
+					PcscCallResult currentResult = listener.processPcscCall(callData);
+					if (result == null && currentResult != null) {
+						// ignore all but the first result
+						result = currentResult;
 					}
+				} catch (RuntimeException e) {
+					BasicLogger.logException(getClass(),
+							"Something went wrong while processing of the PCSC data by listener \""
+									+ listener.getClass().getName() + "\"!\"",
+							e, LogLevel.ERROR);
 				}
-			} else {
-				BasicLogger.log(getClass(), "No PCSC listeners registered!", LogLevel.WARN);
 			}
-		} catch (RuntimeException e) {
-			BasicLogger.logException(getClass(), "Something went wrong while parsing the PCSC data!", e,
-					LogLevel.ERROR);
+		} else {
+			BasicLogger.log(getClass(), "No PCSC listeners registered!", LogLevel.WARN);
 		}
 		if (result == null) {
 			result = new SimplePcscCallResult(PcscConstants.IFD_NOT_SUPPORTED);
@@ -581,15 +560,42 @@ public class DefaultMessageHandler implements MessageHandler {
 		return result;
 	}
 
-	// will be used when AusweisApp handles slot names correctly
-	@SuppressWarnings("unused")
 	private String getRandomString(int length) {
-		String result = "";
+		StringBuilder builder = new StringBuilder();
 		for (int i = 0; i < length; i++) {
-			result += SLOT_HANDLE_CHARACTERS
-					.charAt(ThreadLocalRandom.current().nextInt(SLOT_HANDLE_CHARACTERS.length()));
+			builder.append(SLOT_HANDLE_CHARACTERS.charAt(ThreadLocalRandom.current().nextInt(SLOT_HANDLE_CHARACTERS.length())));
 		}
-		return result;
+		return builder.toString();
+	}
+
+	@Override
+	public boolean isIccAvailable() {
+		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_IS_ICC_PRESENT, new UnsignedInteger(0), Collections.emptyList()));
+		return result.getResponseCode().equals(PcscConstants.IFD_ICC_PRESENT);
+	}
+	
+	private String getStatusMessage(String slotName) {
+		if (slotName == null || slotName.isEmpty() || (slotName.equals(this.slotName))) {
+			JSONObject response = new JSONObject();
+			response.put(MSG, "IFDStatus");
+			response.put(CONTEXT_HANDLE, this.contextHandle);
+			response.put(SLOT_NAME, this.slotName);
+
+			response.put(PIN_CAPABILITIES, convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
+			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
+			response.put(CONNECTED_READER, true);
+			response.put(CARD_AVAILABLE, getCardStatus());
+			response.put(EFATR, getNull());
+			response.put(EFDIR, getNull());
+			return response.toString();
+		} else {
+			return null;
+		}
+	}
+
+	@Override
+	public String getStatusMessage() {
+		return getStatusMessage(null);
 	}
 
 }

@@ -25,7 +25,6 @@ public class WebSocketProtocol {
 
 	private DataInputStream inputStream;
 	private DataOutputStream outputStream;
-	private boolean stopped = false;
 	private MessageHandler messageHandler;
 	
 	private Frame joinedFrame = null;
@@ -40,16 +39,44 @@ public class WebSocketProtocol {
 
 	public void handleConnection() {
 		ConnectionState connectionState = ConnectionState.NEW;
+		Thread iccPollingThread = null;
 
-		while (!stopped) {
+		while (true) {
 			switch (connectionState) {
 			case NEW:
 				if (handleHandshake()) {
 					connectionState = ConnectionState.ESTABLISHED;
+					iccPollingThread = new Thread(new Runnable() {
+						
+						private boolean lastIccState;
+
+						@Override
+						public void run() {
+							while (!Thread.interrupted()) {
+								try {
+									Thread.sleep(1000);
+								} catch (InterruptedException e) {
+									BasicLogger.logException(getClass(), "Sleeping of icc polling thread interrupted", e);
+									Thread.currentThread().interrupt();
+								}
+								if (messageHandler.isIccAvailable() != lastIccState) {
+									lastIccState = !lastIccState;
+									writeFrame(createBasicFrame(Opcode.CLOSE, messageHandler.getStatusMessage().getBytes(StandardCharsets.UTF_8)));	
+								}
+							}
+						}
+					});
+					iccPollingThread.start();
 				}
+				
 				break;
 			case ESTABLISHED:
 				Frame currentFrame = readFrame();
+				
+				if (currentFrame == null) {
+					connectionState = ConnectionState.CLOSED;
+					break;
+				}
 				
 				if (currentFrame.getOpcode().isControl()) {
 					BasicLogger.log(getClass(), "Handling control frame", LogLevel.TRACE);
@@ -79,6 +106,9 @@ public class WebSocketProtocol {
 				
 				break;
 			case CLOSED:
+				if (iccPollingThread != null) {
+					iccPollingThread.interrupt();
+				}
 				return;
 			default:
 				break;
@@ -134,14 +164,14 @@ public class WebSocketProtocol {
 	private String readToDelimiter(char[] cs) {
 				
 		int indexToDelimiter = 0;
-		String data = "";
+		StringBuilder data = new StringBuilder();
 		
 		do {
 			try {
 				int read = reader.read();
 				char readChar = (char) read;
 				
-				data += readChar;
+				data.append(readChar);
 				
 				if (read == -1) {
 					throw new IllegalStateException("Reading reached EOF unexpectedly");
@@ -159,7 +189,7 @@ public class WebSocketProtocol {
 			
 		} while (indexToDelimiter != cs.length);
 		
-		return data;
+		return data.toString();
 	}
 
 	private ConnectionState handleFrame(Frame curFrame) {
@@ -219,7 +249,7 @@ public class WebSocketProtocol {
 		short header = 0;
 
 		header |= frame.getFin() ? 0x8000 : 0;
-		// TODO set RSV
+		// IMPL set RSV
 		header |= (frame.getOpcode().getValue() << 8);
 
 		if (frame.getPayload().length <= 125) {
@@ -230,7 +260,7 @@ public class WebSocketProtocol {
 			header |= 127;
 		}
 
-		StringBuffer logMessage = new StringBuffer();
+		StringBuilder logMessage = new StringBuilder();
 		ByteBuffer message = ByteBuffer.allocate(1024);
 
 		try {
@@ -253,8 +283,7 @@ public class WebSocketProtocol {
 			BasicLogger.log(getClass(), logMessage.toString(), LogLevel.TRACE);
 
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			BasicLogger.logException(getClass(),  "Writing a frame failed", e);
 		}
 	}
 
@@ -289,12 +318,13 @@ public class WebSocketProtocol {
 				}
 			}
 
-			String logMessage = "Received Frame Header:" + System.lineSeparator() + "FIN: " + fin
+			StringBuilder logMessage = new StringBuilder();
+			logMessage.append("Received Frame Header:" + System.lineSeparator() + "FIN: " + fin
 					+ System.lineSeparator() + "Opcode: " + Opcode.forValue(opcode).toString() + System.lineSeparator() + "Mask: " + mask
-					+ System.lineSeparator() + "Payload Length: " + payloadLength;
-			BasicLogger.log(getClass(), logMessage, LogLevel.DEBUG);
+					+ System.lineSeparator() + "Payload Length: " + payloadLength);
+			BasicLogger.log(getClass(), logMessage.toString(), LogLevel.DEBUG);
 
-			// TODO handle extension data
+			// IMPL handle extension data
 
 			int readBytes = 0;
 
@@ -308,14 +338,16 @@ public class WebSocketProtocol {
 				readBytes++;
 				payload.write(current);
 			}
+			
+			logMessage = new StringBuilder();
 
-			logMessage = "Received message:" + System.lineSeparator();
+			logMessage.append("Received message:" + System.lineSeparator());
 
 			for (byte b : payload.toByteArray()) {
-				logMessage += Integer.toHexString((byte) (0xFF & b));
+				logMessage.append(Integer.toHexString((byte) (0xFF & b)));
 			}
 
-			BasicLogger.log(getClass(), logMessage, LogLevel.TRACE);
+			BasicLogger.log(getClass(), logMessage.toString(), LogLevel.TRACE);
 
 			result.setFin(fin);
 			result.setRSV1(rsv1);
@@ -326,8 +358,7 @@ public class WebSocketProtocol {
 
 			return result;
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			BasicLogger.logException(getClass(), "Reading and parsing a new frame failed", e);
 		}
 		return null;
 	}
