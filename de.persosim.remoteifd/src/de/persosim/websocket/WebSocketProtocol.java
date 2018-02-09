@@ -61,7 +61,7 @@ public class WebSocketProtocol {
 								}
 								if (messageHandler.isIccAvailable() != lastIccState) {
 									lastIccState = !lastIccState;
-									writeFrame(createBasicFrame(Opcode.CLOSE, messageHandler.getStatusMessage().getBytes(StandardCharsets.UTF_8)));	
+									writeFrame(createBasicFrame(Opcode.TEXT, messageHandler.getStatusMessage().getBytes(StandardCharsets.UTF_8)));	
 								}
 							}
 						}
