@@ -125,7 +125,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			this.slotName = jsonMessage.getString(SLOT_NAME);
 			this.slotHandle = getRandomString(10);
-
+			
 			response.put(SLOT_HANDLE, this.slotHandle);
 
 			pcscPowerIcc(PcscConstants.IFD_POWER_UP);
@@ -253,17 +253,9 @@ public class DefaultMessageHandler implements MessageHandler {
 
 	private void setOkResult(JSONObject response) {
 		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
-		response.put(RESULT_MINOR, getNull());
+		response.put(RESULT_MINOR, JSONObject.NULL);
 	}
-
-	/**
-	 * {@link JSONObject#put(String, Object) is ambiguous for null}
-	 * @return
-	 */
-	private Object getNull() {
-		return null;
-	}
-
+	
 	private boolean getCardStatus() {
 		// As long as this is used only in the PersoSim-GUI application, this is a reasonable assumption
 		return true;
@@ -585,8 +577,8 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
 			response.put(CONNECTED_READER, true);
 			response.put(CARD_AVAILABLE, getCardStatus());
-			response.put(EFATR, getNull());
-			response.put(EFDIR, getNull());
+			response.put(EFATR, JSONObject.NULL);
+			response.put(EFDIR, JSONObject.NULL);
 			return response.toString();
 		} else {
 			return null;
