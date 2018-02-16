@@ -25,6 +25,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	private List<PcscListener> listeners;
 	private Thread serverThread;
 	private ServerSocket serverSocket;
+	private Socket client;
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private HandshakeResultListener handshakeResultListener;
 	private Thread announcer;
@@ -59,6 +60,17 @@ public class WebsocketComm implements IfdComm, Runnable{
 		if (announcer != null) {
 			announcer.interrupt();
 		}
+
+		try {
+			if (client != null) {
+				client.close();
+				client = null;
+			}
+		} catch (IOException e) {
+			BasicLogger.logException(getClass(), "Exception during closing of the websocket client socket", e,
+					LogLevel.WARN);
+		}
+		
 		try {
 			if (serverSocket != null) {
 				serverSocket.close();
@@ -113,8 +125,6 @@ public class WebsocketComm implements IfdComm, Runnable{
 				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, DEFAULT_SERVER_PORT)));
 				announcer.start();
 				
-				
-				Socket client = null;
 				client = serverSocket.accept();
 					 
 				announcer.interrupt();
