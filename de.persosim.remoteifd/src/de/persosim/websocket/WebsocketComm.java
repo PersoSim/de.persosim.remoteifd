@@ -182,6 +182,6 @@ public class WebsocketComm implements IfdComm, Runnable{
 
 	@Override
 	public String getUserString() {
-		return "SaK interface";
+		return "RemoteIFD interface";
 	}
 }
