@@ -5,8 +5,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.security.SecureRandom;
+import java.util.Vector;
 
 import org.bouncycastle.tls.Certificate;
+import org.bouncycastle.tls.CertificateRequest;
+import org.bouncycastle.tls.ClientCertificateType;
 import org.bouncycastle.tls.DefaultTlsServer;
 import org.bouncycastle.tls.HashAlgorithm;
 import org.bouncycastle.tls.SignatureAlgorithm;
@@ -19,6 +22,8 @@ import org.bouncycastle.tls.crypto.impl.bc.BcDefaultTlsCredentialedSigner;
 import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
+
+import de.persosim.simulator.utils.HexString;
 
 public class DefaultHandshaker implements TlsHandshaker {
 
@@ -55,10 +60,17 @@ public class DefaultHandshaker implements TlsHandshaker {
 				};
 
 				private void validateCertificate(Certificate cert) {
-					if (!remoteIfdConfig.getPairedCertificates()
-							.contains(CertificateConverter.fromBcTlsCertificateToJavaCertificate(cert))) {
+					java.security.cert.Certificate javaCert = CertificateConverter.fromBcTlsCertificateToJavaCertificate(cert);
+					if (!remoteIfdConfig.getPairedCertificates().contains(javaCert)) {
+						BasicLogger.log(getClass(), "The certificate with serial 0x" + HexString.encode(cert.getCertificateAt(0).getSerialNumber()) + " is not paired");
 						throw new IllegalArgumentException("Unknown cert " + cert);
 					}
+				}
+
+				public CertificateRequest getCertificateRequest() {
+					Vector<Object> signatureAndHash = new Vector<>();
+					signatureAndHash.add(new SignatureAndHashAlgorithm(HashAlgorithm.sha256, SignatureAlgorithm.rsa));
+					return new CertificateRequest(new short[] { ClientCertificateType.rsa_sign }, signatureAndHash, null);
 				}
 
 				@Override
