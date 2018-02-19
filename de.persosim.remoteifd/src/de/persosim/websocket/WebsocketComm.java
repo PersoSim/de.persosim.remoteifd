@@ -151,6 +151,10 @@ public class WebsocketComm implements IfdComm, Runnable{
 					handshaker.closeConnection();
 				}
 
+				if (handshakeResultListener != null) {
+					handshakeResultListener.onConnectionClosed();
+				}
+
 				if (pairingCode != null) {
 					stop();
 					break;
