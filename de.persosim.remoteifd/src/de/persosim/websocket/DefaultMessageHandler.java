@@ -128,9 +128,11 @@ public class DefaultMessageHandler implements MessageHandler {
 			
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			pcscPowerIcc(PcscConstants.IFD_POWER_UP);
-
-			setOkResult(response);
+			if (pcscPowerIcc(PcscConstants.IFD_POWER_UP)) {
+				setOkResult(response);
+			} else {
+				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_NO_CARD);
+			}
 			break;
 		case IFD_DISCONNECT:
 
@@ -254,11 +256,6 @@ public class DefaultMessageHandler implements MessageHandler {
 	private void setOkResult(JSONObject response) {
 		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
 		response.put(RESULT_MINOR, JSONObject.NULL);
-	}
-	
-	private boolean getCardStatus() {
-		// As long as this is used only in the PersoSim-GUI application, this is a reasonable assumption
-		return true;
 	}
 
 	private JSONObject convertPscsCapabilitiesToJson(byte[] capabilities) {
@@ -505,7 +502,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		return result;
 	}
 
-	private void pcscPowerIcc(UnsignedInteger pcscPowerFunction) {
+	private boolean pcscPowerIcc(UnsignedInteger pcscPowerFunction) {
 		List<byte[]> parameters = new LinkedList<>();
 
 		parameters.add(pcscPowerFunction.getAsByteArray());
@@ -514,10 +511,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		PcscCallResult result = doPcsc(
 				new PcscCallData(IfdInterface.PCSC_FUNCTION_POWER_ICC, lun, parameters));
 
-		if (!PcscConstants.IFD_SUCCESS.equals(result.getResponseCode())) {
-			throw new IllegalStateException(
-					"Call for power icc was not successful: " + result.getResponseCode().getAsHexString());
-		}
+		return PcscConstants.IFD_SUCCESS.equals(result.getResponseCode());
 	}
 
 	private byte[] pcscTransmit(byte[] inputApdu) {
@@ -576,7 +570,7 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(PIN_CAPABILITIES, convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
 			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
 			response.put(CONNECTED_READER, true);
-			response.put(CARD_AVAILABLE, getCardStatus());
+			response.put(CARD_AVAILABLE, isIccAvailable());
 			response.put(EFATR, JSONObject.NULL);
 			response.put(EFDIR, JSONObject.NULL);
 			return response.toString();
