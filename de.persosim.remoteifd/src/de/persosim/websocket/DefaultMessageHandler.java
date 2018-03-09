@@ -319,10 +319,6 @@ public class DefaultMessageHandler implements MessageHandler {
 			return failureResult;
 		}
 		
-		if (!Arrays.equals(Arrays.copyOfRange(byteArray, 0, 4), HexString.toByteArray("FF9A0410"))) {
-			return failureResult;
-		}
-		
 		UnsignedInteger controlCode = pcscPerformGetFeatures().get(ModifyPinDirect.FEATURE_TAG);
 
 		List<byte[]> parameters = new LinkedList<>();
