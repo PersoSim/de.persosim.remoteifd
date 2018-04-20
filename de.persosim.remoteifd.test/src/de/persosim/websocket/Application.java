@@ -39,7 +39,7 @@ public class Application {
 	private static String KEYPASSWORD = "keypassword";
 	
 	public static void main(String[] args) throws IOException {
-		Crypto.setCryptoProvider(new ProviderBc().getCryptoProviderObject());
+		Crypto.setCryptoProvider(ProviderBc.getInstance().getCryptoProviderObject());
 		
 		PersoSim sim = new PersoSim();
 		
