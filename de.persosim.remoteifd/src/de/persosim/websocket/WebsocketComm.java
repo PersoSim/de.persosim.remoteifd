@@ -18,7 +18,6 @@ import de.persosim.simulator.utils.HexString;
 
 public class WebsocketComm implements IfdComm, Runnable{
 
-	private static final int DEFAULT_SERVER_PORT = 1234;
 	private boolean running = false;
 	AnnouncementMessageBuilder builder;
 	private String pairingCode;
@@ -120,9 +119,9 @@ public class WebsocketComm implements IfdComm, Runnable{
 			serverSocket = null;
 			
 			announcer = null;
-			serverSocket = new ServerSocket(DEFAULT_SERVER_PORT);
+			serverSocket = new ServerSocket(0);
 			while (!Thread.interrupted() ) {
-				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, DEFAULT_SERVER_PORT)));
+				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, serverSocket.getLocalPort())));
 				announcer.start();
 				
 				client = serverSocket.accept();
