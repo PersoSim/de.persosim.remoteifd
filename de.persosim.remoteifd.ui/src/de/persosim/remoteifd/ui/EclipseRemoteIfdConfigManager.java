@@ -172,7 +172,7 @@ public class EclipseRemoteIfdConfigManager implements RemoteIfdConfigManager {
 			pairedCerts = pairedCerts.substring(1);
 		}
 		if (pairedCerts.endsWith(":")) {
-			pairedCerts = pairedCerts.substring(0, pairedCerts.length() - 2);
+			pairedCerts = pairedCerts.substring(0, pairedCerts.length() - 1);
 		}
 		return pairedCerts;
 	}
