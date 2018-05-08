@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: PersoSim Remote IFD UI
 Bundle-SymbolicName: de.persosim.remoteifd
-Bundle-Version: 0.10.3.qualifier
+Bundle-Version: 0.10.4.qualifier
 Export-Package: de.persosim.websocket
 Require-Bundle: org.globaltester.lib.json,
  org.globaltester.logging,
