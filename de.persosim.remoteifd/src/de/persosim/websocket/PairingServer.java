@@ -56,7 +56,7 @@ public class PairingServer implements TlsHandshaker {
 				Certificate usedCert = null;
 
 				public TlsKeyExchange getKeyExchange() throws IOException {
-					TlsKeyExchange keyExchange = super.getKeyExchange();
+					final TlsKeyExchange keyExchange = super.getKeyExchange();
 					return new TlsKeyExchange() {
 						
 						@Override

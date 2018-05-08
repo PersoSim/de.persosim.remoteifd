@@ -12,4 +12,9 @@ public interface HandshakeResultListener {
 	 *            true, iff the tls handshake was completed successfully
 	 */
 	public void onHandshakeFinished(boolean success);
+	
+	/**
+	 * Is called when the handshake connection is closed
+	 */
+	public void onConnectionClosed();
 }

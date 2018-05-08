@@ -11,13 +11,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
+import de.persosim.simulator.utils.Base64;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.websocket.Frame.Opcode;
 
@@ -92,7 +92,7 @@ public class WebSocketProtocol {
 					
 					if (joinedFrame.getFin()) {
 						BasicLogger.log(getClass(), "Joined frame complete, handling now", LogLevel.TRACE);
-						Frame frameToProcess = joinedFrame;
+						final Frame frameToProcess = joinedFrame;
 						joinedFrame = null;
 						Thread handler = new Thread(new Runnable() {
 
@@ -143,7 +143,7 @@ public class WebSocketProtocol {
 				return false;
 			}
 
-			String challengeResponse = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-1").digest(
+			String challengeResponse = Base64.encode(MessageDigest.getInstance("SHA-1").digest(
 					(match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes(StandardCharsets.UTF_8)));
 			String response = ("HTTP/1.1 101 Switching Protocols\r\n" + "Connection: Upgrade\r\n"
 					+ "Upgrade: websocket\r\n" + "Sec-WebSocket-Accept: " + challengeResponse + "\r\n\r\n");

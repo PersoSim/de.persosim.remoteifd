@@ -157,7 +157,7 @@ public class DefaultMessageHandler implements MessageHandler {
 
 			List<String> responseApdus = handleApdus(commandApdus);
 			
-			response.put("ResponseAPDUs", responseApdus);
+			response.put("ResponseAPDUs", new JSONArray(responseApdus));
 
 			setOkResult(response);
 			

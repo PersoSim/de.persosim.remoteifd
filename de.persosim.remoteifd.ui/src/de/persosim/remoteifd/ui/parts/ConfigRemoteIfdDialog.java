@@ -225,6 +225,12 @@ public class ConfigRemoteIfdDialog extends Dialog {
 
 				 
 			}
+
+			@Override
+			public void onConnectionClosed() {
+				// intentionally ignore
+				
+			}
 		});
 	}
 	
