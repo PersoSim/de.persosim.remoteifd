@@ -129,30 +129,17 @@ public class WebsocketComm implements IfdComm, Runnable{
 				announcer.interrupt();
 				announcer = null;
 					
-				TlsHandshaker handshaker;
-				if (pairingCode != null) {
-					handshaker = new PairingServer(pairingCode, remoteIfdConfig, client);
-				} else {
-					handshaker = new DefaultHandshaker(remoteIfdConfig, client);
-				}
+				TlsHandshaker handshaker = getHandshaker();
 
 				boolean handshakeResult = handshaker.performHandshake();
-				if (handshakeResultListener != null) {
-					handshakeResultListener.onHandshakeFinished(handshakeResult);
-				}
+				
+				notifyListeners(handshakeResult);
 
 				if (handshakeResult) {
-					WebSocketProtocol websocket = new WebSocketProtocol(handshaker.getInputStream(),
-							handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
-
-					websocket.handleConnection();
-
-					handshaker.closeConnection();
+					handleWebSocketCommunication(handshaker);
 				}
 
-				if (handshakeResultListener != null) {
-					handshakeResultListener.onConnectionClosed();
-				}
+				notifyListenersConnectionClosed();
 
 				if (pairingCode != null) {
 					stop();
@@ -168,6 +155,38 @@ public class WebsocketComm implements IfdComm, Runnable{
 			}
 		}
 		
+	}
+
+	private void handleWebSocketCommunication(TlsHandshaker handshaker) {
+		WebSocketProtocol websocket = getWebSocketProtocol(handshaker);
+
+		websocket.handleConnection();
+
+		handshaker.closeConnection();
+	}
+
+	private WebSocketProtocol getWebSocketProtocol(TlsHandshaker handshaker) {
+		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
+	}
+
+	private void notifyListenersConnectionClosed() {
+		if (handshakeResultListener != null) {
+			handshakeResultListener.onConnectionClosed();
+		}
+	}
+
+	private void notifyListeners(boolean handshakeResult) {
+		if (handshakeResultListener != null) {
+			handshakeResultListener.onHandshakeFinished(handshakeResult);
+		}
+	}
+
+	private TlsHandshaker getHandshaker() {
+		if (pairingCode != null) {
+			return new PairingServer(pairingCode, remoteIfdConfig, client);
+		} else {
+			return new DefaultHandshaker(remoteIfdConfig, client);
+		}
 	}
 
 	@Override
