@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.bouncycastle.tls.Certificate;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import de.persosim.driver.connector.IfdInterface;
@@ -24,7 +24,6 @@ import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.driver.connector.pcsc.SimplePcscCallResult;
 import de.persosim.simulator.apdu.CommandApdu;
 import de.persosim.simulator.apdu.CommandApduFactory;
-import de.persosim.simulator.platform.Iso7816Lib;
 import de.persosim.simulator.tlv.ConstructedTlvDataObject;
 import de.persosim.simulator.tlv.PrimitiveTlvDataObject;
 import de.persosim.simulator.tlv.TlvConstants;
@@ -58,7 +57,8 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String CONTEXT_HANDLE = "ContextHandle";
 	private static final String SLOT_NAME = "SlotName";
 	private static final String COMMAND_APDUS = "CommandAPDUs"; 
-	private static final String INPUT_APDU = "InputAPDU";
+	private static final String INPUT_APDU = "InputAPDU"; 
+	private static final String RESPONSE_APDU = "ResponseAPDU";
 	private static final String ACCEPTABLE_STATUS_CODES = "AcceptableStatusCodes";
 	private static final String EFDIR = "EFDIR";
 	private static final String EFATR = "EFATR";
@@ -66,6 +66,9 @@ public class DefaultMessageHandler implements MessageHandler {
 	private static final String CONNECTED_READER = "ConnectedReader";
 	private static final String MAX_APDU_LENGTH = "MaxAPDULength";
 	private static final String PIN_CAPABILITIES = "PINCapabilities";
+	private static final String PIN_PAD = "PINPad";
+
+	private static final String UD_NAME = "UDName";
 	
 	
 	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
@@ -79,12 +82,16 @@ public class DefaultMessageHandler implements MessageHandler {
 
 	UnsignedInteger lun = new UnsignedInteger(1);
 	private String slotName = "PersoSim Slot 1";
+	private RemoteIfdConfigManager remoteIfdConfig;
+	private Certificate clientCertificate;
 
 	private static final String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
 
-	public DefaultMessageHandler(List<PcscListener> listeners, String deviceName) {
+	public DefaultMessageHandler(List<PcscListener> listeners, String deviceName, RemoteIfdConfigManager remoteIfdConfig, Certificate clientCertificate) {
 		this.listeners = listeners;
 		this.deviceName = deviceName;
+		this.remoteIfdConfig = remoteIfdConfig;
+		this.clientCertificate = clientCertificate;
 	}
 
 	@Override
@@ -111,6 +118,10 @@ public class DefaultMessageHandler implements MessageHandler {
 		JSONObject response = new JSONObject();
 		switch (messageType) {
 		case IFD_ESTABLISH_CONTEXT:
+			
+			if (jsonMessage.has(UD_NAME)) {
+				remoteIfdConfig.updateUdNameForCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(clientCertificate), jsonMessage.getString(UD_NAME));
+			}
 
 			response.put(MSG, IFD_ESTABLISH_CONTEXT_RESPONSE);
 
@@ -153,11 +164,11 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_HANDLE, this.slotHandle);
 
-			JSONArray commandApdus = jsonMessage.getJSONArray(COMMAND_APDUS);
+			String commandApdu = jsonMessage.getString(INPUT_APDU);
 
-			List<String> responseApdus = handleApdus(commandApdus);
+			String responseApdus = handleApdu(commandApdu);
 			
-			response.put("ResponseAPDUs", new JSONArray(responseApdus));
+			response.put(RESPONSE_APDU, responseApdus);
 
 			setOkResult(response);
 			
@@ -206,46 +217,12 @@ public class DefaultMessageHandler implements MessageHandler {
 		return response.toString();
 	}
 
-	private List<String> handleApdus(JSONArray commandApdus) {
-		List<String> responseApdus = new LinkedList<>();
-		for (int i = 0; i < commandApdus.length(); i++) {
-			JSONObject currentApdu = commandApdus.getJSONObject(i);
-			byte[] inputApdu = HexString.toByteArray(currentApdu.getString(INPUT_APDU));
+	private String handleApdu(String commandApdu) {
+		byte[] inputApdu = HexString.toByteArray(commandApdu);
 
-			Number[] acceptableStatusCodes = null;
-			if (!currentApdu.isNull(ACCEPTABLE_STATUS_CODES)) {
-				JSONArray statusCodes = currentApdu.getJSONArray(ACCEPTABLE_STATUS_CODES);
-				acceptableStatusCodes = getStatusCodesFromJson(statusCodes);
-			}
+		byte[] responseApdu = pcscTransmit(inputApdu);
 
-			byte[] responseApdu = pcscTransmit(inputApdu);
-
-			short actualStatusCode = Iso7816Lib.getStatusWord(responseApdu);
-
-			if (!checkStatusCodes(acceptableStatusCodes, actualStatusCode)) {
-				break;
-			}
-			responseApdus.add(HexString.encode(responseApdu));
-		}
-		return responseApdus;
-	}
-
-	private boolean checkStatusCodes(Number[] acceptableStatusCodes, short actualStatusCode) {
-		boolean statusCodeAcceptable = true;
-		if (acceptableStatusCodes != null) {
-			statusCodeAcceptable  = false;
-			for (Number currentAcceptable : acceptableStatusCodes) {
-				boolean isByteAndAcceptable = currentAcceptable instanceof Byte
-						&& currentAcceptable.equals(Utils.getFirstByteOfShort(actualStatusCode));
-				boolean isShortAndAcceptable = currentAcceptable instanceof Short
-						&& currentAcceptable.equals(actualStatusCode);
-				if (isByteAndAcceptable || isShortAndAcceptable) {
-					statusCodeAcceptable = true;
-					break;
-				}
-			}
-		}
-		return statusCodeAcceptable;
+		return HexString.encode(responseApdu);
 	}
 
 	private void setErrorResult(JSONObject response, String resultMinor) {
@@ -258,18 +235,14 @@ public class DefaultMessageHandler implements MessageHandler {
 		response.put(RESULT_MINOR, JSONObject.NULL);
 	}
 
-	private JSONObject convertPscsCapabilitiesToJson(byte[] capabilities) {
+	private boolean isPacePinPadAvailable(byte[] capabilities) {
 		// We are expecting one length byte and one byte for the bit field
 		if (capabilities.length != 2 || capabilities [0] != 1) {
-			throw new IllegalArgumentException("PACE capabilities in unexpected format");
+			return false;
 		}
 		
-		JSONObject jsonCaps = new JSONObject();
-		jsonCaps.put("PACE", ((byte)(PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT);
-		jsonCaps.put("eID", ((byte)(PersoSimPcscProcessor.BITMAP_EID_APPLICATION_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_EID_APPLICATION_SUPPORT);
-		jsonCaps.put("eSign", ((byte)(PersoSimPcscProcessor.BITMAP_QUALIFIED_SIGNATURE_FUNCTION & capabilities[1])) == PersoSimPcscProcessor.BITMAP_QUALIFIED_SIGNATURE_FUNCTION);
-		jsonCaps.put("Destroy", ((byte)(PersoSimPcscProcessor.BITMAP_IFD_DESTROY_CHANNEL_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_DESTROY_CHANNEL_SUPPORT);
-		return jsonCaps;
+		return ((byte)(PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT;
+		
 	}
 
 	private byte[] pcscPerformEstablishPaceChannel(byte[] ccidMappedApdu) {
@@ -527,21 +500,6 @@ public class DefaultMessageHandler implements MessageHandler {
 				"Call for transmit was not successful: " + result.getResponseCode().getAsHexString());
 	}
 
-	private Number[] getStatusCodesFromJson(JSONArray jsonArray) {
-		Number[] result = new Number[jsonArray.length()];
-		for (int i = 0; i < jsonArray.length(); i++) {
-			int statusCodeLength = jsonArray.getString(i).length();
-			if (statusCodeLength == 1) {
-				result[i] = Byte.parseByte(jsonArray.getString(i), 16);
-			} else if (statusCodeLength == 2) {
-				result[i] = Short.parseShort(jsonArray.getString(i), 16);
-			} else {
-				throw new IllegalArgumentException("Status code can not have length " + statusCodeLength);
-			}
-		}
-		return result;
-	}
-
 	private String getRandomString(int length) {
 		StringBuilder builder = new StringBuilder();
 		for (int i = 0; i < length; i++) {
@@ -563,12 +521,13 @@ public class DefaultMessageHandler implements MessageHandler {
 			response.put(CONTEXT_HANDLE, this.contextHandle);
 			response.put(SLOT_NAME, this.slotName);
 
-			response.put(PIN_CAPABILITIES, convertPscsCapabilitiesToJson(pcscPerformGetReaderPaceCapabilities()));
+			response.put(PIN_PAD, isPacePinPadAvailable(pcscPerformGetReaderPaceCapabilities()));
 			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
 			response.put(CONNECTED_READER, true);
 			response.put(CARD_AVAILABLE, isIccAvailable());
 			response.put(EFATR, JSONObject.NULL);
 			response.put(EFDIR, JSONObject.NULL);
+			
 			return response.toString();
 		} else {
 			return null;

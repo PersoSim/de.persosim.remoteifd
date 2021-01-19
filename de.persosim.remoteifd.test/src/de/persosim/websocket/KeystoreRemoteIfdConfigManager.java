@@ -9,9 +9,9 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.interfaces.RSAPrivateKey;
-import java.util.Collection;
 import java.util.Enumeration;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Load from a given keystore and do not persist. This implementation is used for test purposes.
@@ -52,21 +52,20 @@ public class KeystoreRemoteIfdConfigManager implements RemoteIfdConfigManager {
 	}
 
 	@Override
-	public Collection<Certificate> getPairedCertificates() {
-		Enumeration<String> aliases;
+	public Map<Certificate, String> getPairedCertificates() {
 		try {
-			aliases = keyStore.aliases();
+			Enumeration<String> aliases = keyStore.aliases();
 
-			Collection<Certificate> certs = new HashSet<>();
+			Map<Certificate, String> retVal = new HashMap<Certificate, String>();
 
 			while (aliases.hasMoreElements()) {
 				String current = aliases.nextElement();
 				if (current != "default") {
-					certs.add(keyStore.getCertificate(current));
+					retVal.put(keyStore.getCertificate(current), "no name for tests");
 				}
 			}
 
-			return certs;
+			return retVal;
 		} catch (KeyStoreException e) {
 			throw new IllegalStateException(e);
 		}
@@ -88,6 +87,11 @@ public class KeystoreRemoteIfdConfigManager implements RemoteIfdConfigManager {
 		} catch (KeyStoreException e) {
 			throw new IllegalStateException(e);
 		}
+	}
+
+	@Override
+	public void updateUdNameForCertificate(Certificate certificate, String ifdName) {
+		// intentionally ignored in tests
 	}
 
 }

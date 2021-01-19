@@ -30,6 +30,7 @@ public class DefaultHandshaker implements TlsHandshaker {
 	private Socket clientSocket;
 	private TlsServerProtocol protocol;
 	private RemoteIfdConfigManager remoteIfdConfig;
+	protected Certificate clientCert;
 
 	public DefaultHandshaker(RemoteIfdConfigManager remoteIfdConfig, Socket client) {
 		this.clientSocket = client;
@@ -57,11 +58,12 @@ public class DefaultHandshaker implements TlsHandshaker {
 
 				public void notifyClientCertificate(Certificate arg0) throws IOException {
 					validateCertificate(arg0);
+					clientCert = arg0;
 				};
 
 				private void validateCertificate(Certificate cert) {
 					java.security.cert.Certificate javaCert = CertificateConverter.fromBcTlsCertificateToJavaCertificate(cert);
-					if (!remoteIfdConfig.getPairedCertificates().contains(javaCert)) {
+					if (!remoteIfdConfig.getPairedCertificates().keySet().contains(javaCert)) {
 						BasicLogger.log(getClass(), "The certificate with serial 0x" + HexString.encode(cert.getCertificateAt(0).getSerialNumber()) + " is not paired");
 						throw new IllegalArgumentException("Unknown cert " + cert);
 					}
@@ -118,6 +120,11 @@ public class DefaultHandshaker implements TlsHandshaker {
 	@Override
 	public OutputStream getOutputStream() {
 		return protocol.getOutputStream();
+	}
+
+	@Override
+	public Certificate getClientCertificate() {
+		return clientCert;
 	}
 
 }

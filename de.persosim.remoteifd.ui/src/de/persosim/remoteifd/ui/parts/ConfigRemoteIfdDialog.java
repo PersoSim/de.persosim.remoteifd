@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
@@ -25,6 +26,7 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
@@ -78,7 +80,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		Composite container = (Composite) super.createDialogArea(parent);
 		container.setLayout(new GridLayout(2, false));
 
-		certificatesTable = new Table(container, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
+		certificatesTable = new Table(container, SWT.MULTI | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
 		GridData layoutData = new GridData();
 		layoutData.horizontalSpan = 2;
 		layoutData.grabExcessHorizontalSpace = true;
@@ -88,6 +90,12 @@ public class ConfigRemoteIfdDialog extends Dialog {
 		layoutData.minimumHeight = 200;
 		layoutData.minimumWidth = 400;
 		certificatesTable.setLayoutData(layoutData);
+		
+		TableColumn colName = new TableColumn(certificatesTable, SWT.RIGHT);
+	    colName.setText("UDName");
+	    TableColumn colCert = new TableColumn(certificatesTable, SWT.RIGHT);
+	    colCert.setText("Certificate");
+				
 		refreshTable(certificatesTable);
 		certificatesTable.requestLayout();
 
@@ -243,11 +251,13 @@ public class ConfigRemoteIfdDialog extends Dialog {
 
 		RemoteIfdConfigManager configManager = Activator.getRemoteIfdConfig();
 		
-		for (Certificate cert : configManager.getPairedCertificates()) {
+		Map<Certificate, String> certs = configManager.getPairedCertificates();
+		for (Certificate cert : certs.keySet()) {
 			TableItem item = new TableItem(certificatesTable, SWT.NONE);
+
+			String udName = certs.get(cert);
 			
 			String certDescription = "";
-			
 			if (cert instanceof X509Certificate) {
 				X509Certificate x509cert = (X509Certificate) cert;
 				certDescription += x509cert.getSubjectDN();
@@ -256,9 +266,12 @@ public class ConfigRemoteIfdDialog extends Dialog {
 			}
 			
 			
-			item.setText(new String[] { certDescription });
+			item.setText(new String[] { udName, certDescription });
 			item.setData(cert);
 		}
+
+		certificatesTable.getColumn(0).pack();
+		certificatesTable.getColumn(1).pack();
 	}
 
 	@Override

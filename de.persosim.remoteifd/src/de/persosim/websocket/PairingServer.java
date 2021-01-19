@@ -34,6 +34,7 @@ public class PairingServer implements TlsHandshaker {
 	private Socket clientSocket;
 	private TlsServerProtocol protocol;
 	private RemoteIfdConfigManager remoteIfdConfig;
+	private Certificate clientCert = null;
 
 	public PairingServer(String psk, RemoteIfdConfigManager remoteIfdConfig, Socket client) {
 		this.psk = psk.getBytes();
@@ -52,8 +53,6 @@ public class PairingServer implements TlsHandshaker {
 			protocol = new TlsServerProtocol(clientSocket.getInputStream(), clientSocket.getOutputStream());
 
 			protocol.accept(new PSKTlsServer(crypto, identityManager) {
-
-				Certificate usedCert = null;
 
 				public TlsKeyExchange getKeyExchange() throws IOException {
 					final TlsKeyExchange keyExchange = super.getKeyExchange();
@@ -152,13 +151,13 @@ public class PairingServer implements TlsHandshaker {
 				};
 
 				public void notifyClientCertificate(Certificate cert) throws IOException {
-					usedCert = cert;
+					clientCert = cert;
 				};
 
 				@Override
 				public void notifyHandshakeComplete() throws IOException {
 					super.notifyHandshakeComplete();
-					remoteIfdConfig.addPairedCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(usedCert));
+					remoteIfdConfig.addPairedCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(clientCert));
 					BasicLogger.log(getClass(), "Handshake done", LogLevel.DEBUG);
 				}
 
@@ -205,6 +204,11 @@ public class PairingServer implements TlsHandshaker {
 	@Override
 	public OutputStream getOutputStream() {
 		return protocol.getOutputStream();
+	}
+
+	@Override
+	public Certificate getClientCertificate() {
+		return clientCert;
 	}
 
 }

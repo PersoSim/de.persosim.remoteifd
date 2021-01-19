@@ -17,11 +17,14 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.interfaces.RSAPrivateKey;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import org.globaltester.base.PreferenceHelper;
 import org.globaltester.lib.bctls.TlsCertificateGenerator;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import de.persosim.simulator.utils.HexString;
 import de.persosim.websocket.RemoteIfdConfigManager;
@@ -107,73 +110,75 @@ public class EclipseRemoteIfdConfigManager implements RemoteIfdConfigManager {
 	}
 
 	@Override
-	public Collection<Certificate> getPairedCertificates() {
-		String pairedCerts = PreferenceHelper.getPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS);
+	public Map<Certificate,String> getPairedCertificates() {
+		HashMap<Certificate, String> retVal = new HashMap<>();
 
-		Collection<Certificate> certs = new HashSet<>();
-		if (pairedCerts != null && !pairedCerts.isEmpty()) {
-			for (String currentCert : pairedCerts.split(":")) {
-				if (currentCert.isEmpty()) {
-					continue;
-				}
-				try {
-					certs.add(CertificateFactory.getInstance("X.509")
-							.generateCertificate(new ByteArrayInputStream(HexString.toByteArray(currentCert))));
-				} catch (CertificateException e) {
-					throw new IllegalStateException("Parsing of paired certificates failed", e);
-				}
-			}
+		JSONObject jsonData = new JSONObject();
+		String data = PreferenceHelper.getPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS);
+		if (data != null) {
+			jsonData = new JSONObject(data);
 		}
-		return certs;
+		
+		
+		for (Iterator<String> certIter = jsonData.keys(); certIter.hasNext();) {
+			String curCertString = certIter.next();
+			
+			try {
+				Certificate cert = CertificateFactory.getInstance("X.509")
+				.generateCertificate(new ByteArrayInputStream(HexString.toByteArray(curCertString)));
+				String udName = jsonData.getString(curCertString);
+		        
+		        retVal.put(cert, udName);
+		    } catch (CertificateException e) {
+				// ignore this certificate for the future
+			}
+			
+	    }
+				
+		return retVal;
 	}
 
 	@Override
-	public void addPairedCertificate(Certificate certificate) {
-		String pairedCerts = PreferenceHelper.getPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS);
-		if (pairedCerts == null) {
-			pairedCerts = "";
-		}
-		try {
-			if (!pairedCerts.isEmpty()) {
-				pairedCerts += ":";
-			}
-			pairedCerts += HexString.encode(certificate.getEncoded());
-			
-			PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS, pairedCerts);
-			PreferenceHelper.flush(bundleId);
-		} catch (CertificateEncodingException e) {
-			throw new IllegalStateException("Adding of a new paired certificate failed", e);
-		}
+	public void addPairedCertificate(Certificate newCert) {
+		Map<Certificate, String> certificates = getPairedCertificates();
+		
+        certificates.put(newCert, "unknown (until first use)");
+
+		storeToPrefs(certificates);
 	}
 
 	@Override
-	public void deletePairedCertificate(Certificate certificate) {
-		String pairedCerts = PreferenceHelper.getPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS);
+	public void deletePairedCertificate(Certificate delCert) {
+		Map<Certificate, String> certificates = getPairedCertificates();
+		
+        certificates.remove(delCert);
 
-		String toDelete;
-		try {
-			toDelete = HexString.encode(certificate.getEncoded());
-			
-			pairedCerts = pairedCerts.replace(toDelete, "");
-			pairedCerts = cleanupCerts(pairedCerts);
-
-			PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS,pairedCerts);
-			PreferenceHelper.flush(bundleId);
-		} catch (CertificateEncodingException e) {
-			throw new IllegalStateException("Deletion of a paired certificate failed", e);
-		}
+		storeToPrefs(certificates);
 	}
 
-	private String cleanupCerts(String pairedCerts) {
-		while (pairedCerts.contains("::")) {
-			pairedCerts = pairedCerts.replaceAll("::", ":");
-		}
-		if (pairedCerts.startsWith(":")) {
-			pairedCerts = pairedCerts.substring(1);
-		}
-		if (pairedCerts.endsWith(":")) {
-			pairedCerts = pairedCerts.substring(0, pairedCerts.length() - 1);
-		}
-		return pairedCerts;
+	@Override
+	public void updateUdNameForCertificate(Certificate cert, String udName) {
+		Map<Certificate, String> certificates = getPairedCertificates();
+		
+        certificates.put(cert, udName);
+
+		storeToPrefs(certificates);
 	}
+	
+	private void storeToPrefs(Map<Certificate, String> data) {
+		JSONObject jsonData = new JSONObject();
+		
+		for (Certificate cert : data.keySet()) {
+			try {
+				jsonData.put(HexString.encode(cert.getEncoded()), (data.get(cert)));
+			} catch (CertificateEncodingException | JSONException e) {
+				// ignore this certificate for the future
+			}
+		}
+
+		PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS, jsonData.toString());
+		PreferenceHelper.flush(bundleId);
+	
+	}
+	
 }

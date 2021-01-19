@@ -4,8 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.util.List;
 
@@ -14,7 +13,7 @@ import org.globaltester.logging.tags.LogLevel;
 
 import de.persosim.driver.connector.IfdComm;
 import de.persosim.driver.connector.pcsc.PcscListener;
-import de.persosim.simulator.utils.HexString;
+import de.persosim.simulator.utils.Base64;
 
 public class WebsocketComm implements IfdComm, Runnable{
 
@@ -108,9 +107,8 @@ public class WebsocketComm implements IfdComm, Runnable{
 			if (readerName == null){
 				readerName = "PersoSim_" + InetAddress.getLocalHost().getHostName();	
 			}
-			// XXX Hash not yet in Spec (v0.6), but expected by AusweisApp 2 1.13.5
-			// .toLowerCase() needed because AusweisApp does not accept upper case hashes
-			String id = HexString.encode(MessageDigest.getInstance("SHA-256").digest(remoteIfdConfig.getHostCertificate().getEncoded())).toLowerCase();
+
+			String id = encodeCertificate(remoteIfdConfig.getHostCertificate());
 			
 			if (serverSocket != null) {
 				throw new IllegalStateException("Server socket should be null at this point, probably not stopped correctly before resetting");
@@ -119,9 +117,9 @@ public class WebsocketComm implements IfdComm, Runnable{
 			serverSocket = null;
 			
 			announcer = null;
-			serverSocket = new ServerSocket(0);
+			serverSocket = new ServerSocket(33517); //FIXME
 			while (!Thread.interrupted() ) {
-				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, serverSocket.getLocalPort())));
+				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, serverSocket.getLocalPort(), pairingCode!=null)));
 				announcer.start();
 				
 				client = serverSocket.accept();
@@ -147,7 +145,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 				}
 				
 			}
-		} catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
+		} catch (IOException | CertificateEncodingException e) {
 			BasicLogger.logException(getClass(), e, LogLevel.WARN);
 		} finally {
 			if (announcer != null) {
@@ -155,6 +153,14 @@ public class WebsocketComm implements IfdComm, Runnable{
 			}
 		}
 		
+	}
+
+	private String encodeCertificate(Certificate hostCertificate) throws CertificateEncodingException {
+		StringBuilder retVal = new StringBuilder();
+		retVal.append("-----BEGIN CERTIFICATE-----\n");
+		retVal.append(Base64.encode(hostCertificate.getEncoded()).replaceAll("(.{64})",  "$1\n"));
+		retVal.append("-----END CERTIFICATE-----");
+		return retVal.toString();
 	}
 
 	private void handleWebSocketCommunication(TlsHandshaker handshaker) {
@@ -166,7 +172,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	}
 
 	private WebSocketProtocol getWebSocketProtocol(TlsHandshaker handshaker) {
-		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName));
+		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName, remoteIfdConfig, handshaker.getClientCertificate()));
 	}
 
 	private void notifyListenersConnectionClosed() {
