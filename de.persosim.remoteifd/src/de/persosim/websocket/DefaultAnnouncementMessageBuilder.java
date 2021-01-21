@@ -1,7 +1,5 @@
 package de.persosim.websocket;
 
-import java.util.Arrays;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -26,10 +24,7 @@ public class DefaultAnnouncementMessageBuilder implements AnnouncementMessageBui
 		announceMessage.put("msg", "REMOTE_IFD");
 		announceMessage.put("IFDName", name);
 		announceMessage.put("IFDID", ifdid);
-		announceMessage.put("SupportedAPI", new JSONArray(Arrays.asList(
-				"IFDInterface_WebSocket_v0",
-				"IFDInterface_WebSocket_v2"
-				)));
+		announceMessage.put("SupportedAPI", new JSONArray(DefaultMessageHandler.getSupportedApi()));
 		announceMessage.put("port", port);
 		announceMessage.put("pairing", pairing);
 		return announceMessage.toString().getBytes();

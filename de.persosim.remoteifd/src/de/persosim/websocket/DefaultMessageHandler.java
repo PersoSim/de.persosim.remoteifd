@@ -1,12 +1,22 @@
 package de.persosim.websocket;
 
+import static de.persosim.websocket.IfdProtocolWebSocket.CONTEXT_HANDLE;
+import static de.persosim.websocket.IfdProtocolWebSocket.IFD_ERROR;
+import static de.persosim.websocket.IfdProtocolWebSocket.IFD_ESTABLISH_CONTEXT;
+import static de.persosim.websocket.IfdProtocolWebSocket.MSG;
+import static de.persosim.websocket.IfdProtocolWebSocket.PROTOCOL;
+import static de.persosim.websocket.IfdProtocolWebSocket.RESULT_MAJOR;
+import static de.persosim.websocket.IfdProtocolWebSocket.RESULT_MINOR;
+import static de.persosim.websocket.IfdProtocolWebSocket.SLOT_HANDLE;
+import static de.persosim.websocket.IfdProtocolWebSocket.UD_NAME;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.bouncycastle.tls.Certificate;
 import org.globaltester.logging.BasicLogger;
@@ -31,61 +41,34 @@ import de.persosim.simulator.tlv.TlvDataObject;
 import de.persosim.simulator.tlv.TlvDataObjectContainer;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
+import de.persosim.websocket.IfdProtocolWebSocket.ContextProvider;
 
-public class DefaultMessageHandler implements MessageHandler {
-
-	private static final String IFD_GET_STATUS = "IFDGetStatus";
-	private static final String IFD_ESTABLISH_PACE_CHANNEL_RESPONSE = "IFDEstablishPACEChannelResponse";
-	private static final String IFD_ESTABLISH_PACE_CHANNEL = "IFDEstablishPACEChannel";
-	private static final String IFD_NAME = "IFDName";
-	private static final String IFD_TRANSMIT = "IFDTransmit";
-	private static final String IFD_TRANSMIT_RESPONSE = "IFDTransmitResponse";
-	private static final String IFD_ESTABLISH_CONTEXT = "IFDEstablishContext";
-	private static final String IFD_ESTABLISH_CONTEXT_RESPONSE = "IFDEstablishContextResponse";
-	private static final String IFD_CONNECT = "IFDConnect";
-	private static final String IFD_CONNECT_RESPONSE = "IFDConnectResponse";
-	private static final String IFD_DISCONNECT = "IFDDisconnect";
-	private static final String IFD_DISCONNECT_RESPONSE = "IFDDisconnectResponse";
-	private static final String IFD_ERROR = "IFDERROR";
-	private static final String IFD_MODIFY_PIN = "IFDModifyPIN";
-	private static final String IFD_MODIFY_PIN_RESPONSE = "IFDModifyPINResponse";
+public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 	
-	private static final String MSG = "msg";
-	private static final String RESULT_MINOR = "ResultMinor";
-	private static final String RESULT_MAJOR = "ResultMajor";
-	private static final String SLOT_HANDLE = "SlotHandle";
-	private static final String CONTEXT_HANDLE = "ContextHandle";
-	private static final String SLOT_NAME = "SlotName";
-	private static final String COMMAND_APDUS = "CommandAPDUs"; 
-	private static final String INPUT_APDU = "InputAPDU"; 
-	private static final String RESPONSE_APDU = "ResponseAPDU";
-	private static final String ACCEPTABLE_STATUS_CODES = "AcceptableStatusCodes";
-	private static final String EFDIR = "EFDIR";
-	private static final String EFATR = "EFATR";
-	private static final String CARD_AVAILABLE = "CardAvailable";
-	private static final String CONNECTED_READER = "ConnectedReader";
-	private static final String MAX_APDU_LENGTH = "MaxAPDULength";
-	private static final String PIN_CAPABILITIES = "PINCapabilities";
-	private static final String PIN_PAD = "PINPad";
-
-	private static final String UD_NAME = "UDName";
+	public static HashMap<String, IfdProtocolWebSocket> supportedProtocols = new HashMap<>();
+	static {
+		supportedProtocols.put(IfdProtocolWebSocketV0.IDENTIFIER, new IfdProtocolWebSocketV0());
+		supportedProtocols.put(IfdProtocolWebSocketV2.IDENTIFIER, new IfdProtocolWebSocketV2());
+	}
 	
+	public static List<String> getSupportedApi() {
+		ArrayList<String> retVal = new ArrayList<>();
+		retVal.addAll(supportedProtocols.keySet());
+		return retVal;
+	}	
 	
 	private static final byte CCID_FUNCTION_GET_READER_PACE_CAPABITILIES = 1;
 	private static final byte CCID_FUNCTION_DESTROY_PACE_CHANNEL = 3;
 	private static final byte CCID_FUNCTION_ESTABLISH_PACE_CHANNEL = 2;
 	
 	String contextHandle = "PersoSimContextHandle";
-	String slotHandle = null;
 	private List<PcscListener> listeners;
 	private String deviceName;
-
 	UnsignedInteger lun = new UnsignedInteger(1);
-	private String slotName = "PersoSim Slot 1";
+	
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private Certificate clientCertificate;
-
-	private static final String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
+	private IfdProtocolWebSocket currentProtocol;
 
 	public DefaultMessageHandler(List<PcscListener> listeners, String deviceName, RemoteIfdConfigManager remoteIfdConfig, Certificate clientCertificate) {
 		this.listeners = listeners;
@@ -117,99 +100,26 @@ public class DefaultMessageHandler implements MessageHandler {
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {
+		case IFD_ERROR:
+			return null;
 		case IFD_ESTABLISH_CONTEXT:
-			
 			if (jsonMessage.has(UD_NAME)) {
 				remoteIfdConfig.updateUdNameForCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(clientCertificate), jsonMessage.getString(UD_NAME));
 			}
-
-			response.put(MSG, IFD_ESTABLISH_CONTEXT_RESPONSE);
-
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-
-			response.put(IFD_NAME, deviceName);
-
-			setOkResult(response);
-			break;
-		case IFD_CONNECT:
-			response.put(MSG, IFD_CONNECT_RESPONSE);
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			this.slotName = jsonMessage.getString(SLOT_NAME);
-			this.slotHandle = getRandomString(10);
 			
-			response.put(SLOT_HANDLE, this.slotHandle);
-
-			if (pcscPowerIcc(PcscConstants.IFD_POWER_UP)) {
-				setOkResult(response);
+			if (jsonMessage.has(PROTOCOL)) {
+				currentProtocol = supportedProtocols.get(jsonMessage.getString(PROTOCOL));
 			} else {
-				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_NO_CARD);
+				currentProtocol = null;
 			}
-			break;
-		case IFD_DISCONNECT:
-
-			response.put(MSG, IFD_DISCONNECT_RESPONSE);
-
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			response.put(SLOT_HANDLE, this.slotHandle);
-
-			pcscPowerIcc(PcscConstants.IFD_POWER_DOWN);
-			setOkResult(response);
-
-			this.slotHandle = null;
-			break;
-		case IFD_TRANSMIT:
-
-			response.put(MSG, IFD_TRANSMIT_RESPONSE);
-
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			response.put(SLOT_HANDLE, this.slotHandle);
-
-			String commandApdu = jsonMessage.getString(INPUT_APDU);
-
-			String responseApdus = handleApdu(commandApdu);
-			
-			response.put(RESPONSE_APDU, responseApdus);
-
-			setOkResult(response);
-			
-			break;
-		case IFD_GET_STATUS:
-			String incomingSlotName = jsonMessage.getString(SLOT_NAME);
-			return getStatusMessage(incomingSlotName);
-		case IFD_ESTABLISH_PACE_CHANNEL:
-			response.put(MSG, IFD_ESTABLISH_PACE_CHANNEL_RESPONSE);
-
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			response.put(SLOT_HANDLE, this.slotHandle);
-
-			byte[] pcscPerformEstablishPaceChannel = pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")));
-			
-			if (pcscPerformEstablishPaceChannel == null) {
-				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_ACCESS_ERROR);
-			} else {
-				response.put("OutputData", HexString.encode(
-						pcscPerformEstablishPaceChannel));
-				setOkResult(response);
-			}
-
-			break;
-		case IFD_MODIFY_PIN:
-			response.put(MSG, IFD_MODIFY_PIN_RESPONSE);
-
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			response.put(SLOT_HANDLE, this.slotHandle);
-
-			response.put("OutputData", HexString.encode(pcscPerformModifyPin(HexString.toByteArray(jsonMessage.getString("InputData")))));
-
-			setOkResult(response);
-
-			break;
-		case IFD_ERROR:
-			return null;
+			//fallthrough: ESTABLISH_CONTEXT and all following message types are handled by selected protocol
 		default:
-			response.put(MSG, IFD_ERROR);
-			response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_ERROR);
-			response.put(RESULT_MINOR, Tr03112codes.TERMINAL_RESULT_TERMINAL_UNKNOWN_ACTION);
+			if (currentProtocol == null) {
+				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_COMMON_UNSUPPORTED_PROTOCOL);
+				break;
+			}
+
+			response = currentProtocol.message(jsonMessage, this);
 		}
 
 		BasicLogger.log(getClass(), "Send JSON message: " + System.lineSeparator() + response.toString(),
@@ -217,35 +127,12 @@ public class DefaultMessageHandler implements MessageHandler {
 		return response.toString();
 	}
 
-	private String handleApdu(String commandApdu) {
-		byte[] inputApdu = HexString.toByteArray(commandApdu);
-
-		byte[] responseApdu = pcscTransmit(inputApdu);
-
-		return HexString.encode(responseApdu);
-	}
-
 	private void setErrorResult(JSONObject response, String resultMinor) {
 		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_ERROR);
 		response.put(RESULT_MINOR, resultMinor);
 	}
 
-	private void setOkResult(JSONObject response) {
-		response.put(RESULT_MAJOR, Tr03112codes.RESULT_MAJOR_OK);
-		response.put(RESULT_MINOR, JSONObject.NULL);
-	}
-
-	private boolean isPacePinPadAvailable(byte[] capabilities) {
-		// We are expecting one length byte and one byte for the bit field
-		if (capabilities.length != 2 || capabilities [0] != 1) {
-			return false;
-		}
-		
-		return ((byte)(PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT & capabilities[1])) == PersoSimPcscProcessor.BITMAP_IFD_GENERIC_PACE_SUPPORT;
-		
-	}
-
-	private byte[] pcscPerformEstablishPaceChannel(byte[] ccidMappedApdu) {
+	public byte[] pcscPerformEstablishPaceChannel(byte[] ccidMappedApdu) {
 		CommandApdu apdu = CommandApduFactory.createCommandApdu(ccidMappedApdu);
 
 		UnsignedInteger controlCode = pcscPerformGetFeatures().get(PersoSimPcscProcessor.FEATURE_CONTROL_CODE);
@@ -285,7 +172,7 @@ public class DefaultMessageHandler implements MessageHandler {
 				+ result.getResponseCode().getAsHexString());
 	}
 
-	private byte [] pcscPerformModifyPin(byte[] byteArray) {
+	public byte [] pcscPerformModifyPin(byte[] byteArray) {
 		byte [] failureResult = Utils.toUnsignedByteArray(0x6F00);
 		
 		if (byteArray.length < 4) {
@@ -416,7 +303,7 @@ public class DefaultMessageHandler implements MessageHandler {
 				+ result.getResponseCode().getAsHexString());
 	}
 
-	private byte[] pcscPerformGetReaderPaceCapabilities() {
+	public byte[] pcscPerformGetReaderPaceCapabilities() {
 
 		UnsignedInteger controlCode = pcscPerformGetFeatures().get(PersoSimPcscProcessor.FEATURE_CONTROL_CODE);
 		
@@ -471,7 +358,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		return result;
 	}
 
-	private boolean pcscPowerIcc(UnsignedInteger pcscPowerFunction) {
+	public boolean pcscPowerIcc(UnsignedInteger pcscPowerFunction) {
 		List<byte[]> parameters = new LinkedList<>();
 
 		parameters.add(pcscPowerFunction.getAsByteArray());
@@ -483,7 +370,7 @@ public class DefaultMessageHandler implements MessageHandler {
 		return PcscConstants.IFD_SUCCESS.equals(result.getResponseCode());
 	}
 
-	private byte[] pcscTransmit(byte[] inputApdu) {
+	public byte[] pcscTransmit(byte[] inputApdu) {
 		UnsignedInteger function = new UnsignedInteger(IfdInterface.VALUE_PCSC_FUNCTION_TRANSMIT_TO_ICC);
 
 		List<byte[]> parameters = new LinkedList<>();
@@ -500,14 +387,6 @@ public class DefaultMessageHandler implements MessageHandler {
 				"Call for transmit was not successful: " + result.getResponseCode().getAsHexString());
 	}
 
-	private String getRandomString(int length) {
-		StringBuilder builder = new StringBuilder();
-		for (int i = 0; i < length; i++) {
-			builder.append(SLOT_HANDLE_CHARACTERS.charAt(ThreadLocalRandom.current().nextInt(SLOT_HANDLE_CHARACTERS.length())));
-		}
-		return builder.toString();
-	}
-
 	@Override
 	public boolean isIccAvailable() {
 		PcscCallResult result = doPcsc(new PcscCallData(IfdInterface.PCSC_FUNCTION_IS_ICC_PRESENT, new UnsignedInteger(0), Collections.emptyList()));
@@ -515,20 +394,8 @@ public class DefaultMessageHandler implements MessageHandler {
 	}
 	
 	private String getStatusMessage(String slotName) {
-		if (slotName == null || slotName.isEmpty() || (slotName.equals(this.slotName))) {
-			JSONObject response = new JSONObject();
-			response.put(MSG, "IFDStatus");
-			response.put(CONTEXT_HANDLE, this.contextHandle);
-			response.put(SLOT_NAME, this.slotName);
-
-			response.put(PIN_PAD, isPacePinPadAvailable(pcscPerformGetReaderPaceCapabilities()));
-			response.put(MAX_APDU_LENGTH, Short.MAX_VALUE);
-			response.put(CONNECTED_READER, true);
-			response.put(CARD_AVAILABLE, isIccAvailable());
-			response.put(EFATR, JSONObject.NULL);
-			response.put(EFDIR, JSONObject.NULL);
-			
-			return response.toString();
+		if (currentProtocol != null) {
+			return currentProtocol.getStatusMessage(slotName, this).toString();
 		} else {
 			return null;
 		}
@@ -537,6 +404,16 @@ public class DefaultMessageHandler implements MessageHandler {
 	@Override
 	public String getStatusMessage() {
 		return getStatusMessage(null);
+	}
+
+	@Override
+	public String getContextHandle() {
+		return contextHandle;
+	}
+
+	@Override
+	public String getDeviceName() {
+		return deviceName;
 	}
 
 }

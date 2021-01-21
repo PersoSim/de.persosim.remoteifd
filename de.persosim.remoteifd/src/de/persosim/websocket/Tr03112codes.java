@@ -16,6 +16,7 @@ public class Tr03112codes {
 	public static final String TERMINAL_RESULT_COMMON_TIMEOUT_CANCELLATION_BY_USER = TERMINAL_RESULT_COMMON + "cancellationByUser";
 	public static final String TERMINAL_RESULT_COMMON_TIMEOUT_UNKNOWN_SESSION_IDENTIFIER = TERMINAL_RESULT_COMMON + "unknownSessionIdentifier";
 	public static final String TERMINAL_RESULT_COMMON_TIMEOUT_INVALID_SLOT_HANDLE = TERMINAL_RESULT_COMMON + "invalidSlotHandle";
+	public static final String TERMINAL_RESULT_COMMON_UNSUPPORTED_PROTOCOL = TERMINAL_RESULT_COMMON + "unsupportedProtocol";
 	
 	private static final String TERMINAL_RESULT_TERMINAL = "terminal#";
 
