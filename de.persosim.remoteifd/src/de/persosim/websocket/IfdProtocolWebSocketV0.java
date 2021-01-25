@@ -9,7 +9,6 @@ import org.globaltester.logging.tags.LogLevel;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import de.persosim.driver.connector.UnsignedInteger;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscConstants;
 import de.persosim.simulator.platform.Iso7816Lib;
@@ -22,7 +21,6 @@ public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket {
 
 	private static final String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
 
-	UnsignedInteger lun = new UnsignedInteger(1);
 	String slotName = "PersoSim Slot 1";
 	String slotHandle = null;
 
@@ -104,12 +102,13 @@ public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket {
 			response.put(CONTEXT_HANDLE, ctxProvider.getContextHandle());
 			response.put(SLOT_HANDLE, this.slotHandle);
 
+			System.out.println("EstablishPace InputMessage: "+jsonMessage.getString("InputData"));
 			byte[] pcscPerformEstablishPaceChannel = ctxProvider.pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")));
 			
 			if (pcscPerformEstablishPaceChannel == null) {
 				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_ACCESS_ERROR);
 			} else {
-				response.put("OutputData", HexString.encode(
+				response.put(OUTPUT_DATA, HexString.encode(
 						pcscPerformEstablishPaceChannel));
 				setOkResult(response);
 			}

@@ -1,8 +1,12 @@
 package de.persosim.websocket;
 
+import java.util.List;
+import java.util.Map;
+
 import org.json.JSONObject;
 
 import de.persosim.driver.connector.UnsignedInteger;
+import de.persosim.driver.connector.pcsc.PcscCallResult;
 
 /**
  * Implementations of different variations of IfdProtocolWebSocket.
@@ -34,6 +38,7 @@ public interface IfdProtocolWebSocket {
 	public static final String MSG = "msg";
 	public static final String RESULT_MINOR = "ResultMinor";
 	public static final String RESULT_MAJOR = "ResultMajor";
+	public static final String RESULT_CODE = "ResultCode";
 	public static final String PROTOCOL = "Protocol";
 	public static final String SLOT_HANDLE = "SlotHandle";
 	public static final String CONTEXT_HANDLE = "ContextHandle";
@@ -49,6 +54,7 @@ public interface IfdProtocolWebSocket {
 	public static final String MAX_APDU_LENGTH = "MaxAPDULength";
 	public static final String PIN_CAPABILITIES = "PINCapabilities";
 	public static final String PIN_PAD = "PINPad";
+	public static final String OUTPUT_DATA = "OutputData";
 
 	public static final String UD_NAME = "UDName";
 
@@ -73,6 +79,10 @@ public interface IfdProtocolWebSocket {
 		byte[] pcscPerformEstablishPaceChannel(byte[] byteArray);
 
 		boolean pcscPowerIcc(UnsignedInteger ifdPowerUp);
+
+		PcscCallResult doPcsc(UnsignedInteger function, List<byte[]> parameters);
+
+		Map<Byte, UnsignedInteger> pcscPerformGetFeatures();
 		
 	}
 

@@ -117,8 +117,11 @@ public class WebsocketComm implements IfdComm, Runnable{
 			serverSocket = null;
 			
 			announcer = null;
-			serverSocket = new ServerSocket(33517); //FIXME
+			serverSocket = new ServerSocket(0);
 			while (!Thread.interrupted() ) {
+				
+				System.out.println("Local server port: "+serverSocket.getLocalPort());
+				
 				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, serverSocket.getLocalPort(), pairingCode!=null)));
 				announcer.start();
 				

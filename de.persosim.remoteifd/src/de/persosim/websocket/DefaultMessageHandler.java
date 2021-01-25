@@ -183,6 +183,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 
 		List<byte[]> parameters = new LinkedList<>();
 		parameters.add(controlCode.getAsByteArray());
+		
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 		parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
 		
@@ -275,7 +276,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 		return pcscFormattedInputData;
 	}
 	
-	private Map<Byte, UnsignedInteger> pcscPerformGetFeatures(){
+	public Map<Byte, UnsignedInteger> pcscPerformGetFeatures(){
 		List<byte[]> parameters = new LinkedList<>();
 
 		parameters.add(PcscConstants.CONTROL_CODE_GET_FEATURE_REQUEST.getAsByteArray());
@@ -332,6 +333,11 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 				+ result.getResponseCode().getAsHexString());
 	}
 
+	
+	public PcscCallResult doPcsc(UnsignedInteger function, List<byte[]> parameters) {
+		return doPcsc(new PcscCallData(function, lun, parameters));
+	}
+	
 	private PcscCallResult doPcsc(PcscCallData callData) {
 		PcscCallResult result = null;
 		if (listeners != null) {

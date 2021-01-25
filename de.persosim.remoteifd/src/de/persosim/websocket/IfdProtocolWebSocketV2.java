@@ -1,11 +1,18 @@
 package de.persosim.websocket;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.json.JSONObject;
 
+import de.persosim.driver.connector.IfdInterface;
+import de.persosim.driver.connector.UnsignedInteger;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
+import de.persosim.driver.connector.pcsc.PcscCallResult;
 import de.persosim.simulator.utils.HexString;
+import de.persosim.simulator.utils.Utils;
 
 public class IfdProtocolWebSocketV2 extends IfdProtocolWebSocketV0 {
 
@@ -58,7 +65,42 @@ public class IfdProtocolWebSocketV2 extends IfdProtocolWebSocketV0 {
 		case IFD_GET_STATUS:
 			String incomingSlotName = jsonMessage.getString(SLOT_NAME);
 			return getStatusMessage(incomingSlotName, ctxProvider);
-		
+		case IFD_ESTABLISH_PACE_CHANNEL:
+			response.put(MSG, IFD_ESTABLISH_PACE_CHANNEL_RESPONSE);
+
+			response.put(CONTEXT_HANDLE, ctxProvider.getContextHandle());
+			response.put(SLOT_HANDLE, this.slotHandle);
+
+			List<byte[]> parameters = new LinkedList<>();
+			UnsignedInteger controlCode = ctxProvider.pcscPerformGetFeatures().get(PersoSimPcscProcessor.FEATURE_CONTROL_CODE);
+			parameters.add(controlCode.getAsByteArray());
+
+			if (jsonMessage.has("InputData")) {
+				byte[] function = new byte[] {PersoSimPcscProcessor.FUNCTION_ESTABLISH_PACE_CHANNEL};
+				byte[] inputData = HexString.toByteArray(jsonMessage.getString("InputData"));
+				byte[] lenInputData = Utils.createLengthValue(inputData, 2);
+				parameters.add(Utils.concatByteArrays(function, lenInputData, inputData));
+			}
+
+			parameters.add(Utils.toShortestUnsignedByteArray(Integer.MAX_VALUE));
+			
+			PcscCallResult result = ctxProvider.doPcsc(IfdInterface.PCSC_FUNCTION_DEVICE_CONTROL, parameters);
+			
+			
+			
+			if (result != null) {
+				byte[] outputData = result.getData().get(0);
+				
+				response.put(RESULT_CODE, HexString.encode(outputData).substring(0,8));
+				
+				response.put(OUTPUT_DATA, HexString.encode(outputData).substring(12)); //remove leading resultcode and length field
+				setOkResult(response);
+				
+			} else {
+				setErrorResult(response, Tr03112codes.TERMINAL_RESULT_TERMINAL_ACCESS_ERROR);
+			}
+
+			break;
 		default:
 			return super.message(jsonMessage, ctxProvider);
 		}
