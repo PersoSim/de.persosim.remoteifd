@@ -23,4 +23,6 @@ public interface RemoteIfdConfigManager {
 
 	void updateUdNameForCertificate(Certificate certificate, String udName);
 
+	String getName();
+
 }

@@ -203,7 +203,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 	}
 
 	private void createCommObject(String pairingCode) {
-		comm = new WebsocketComm(pairingCode, ifdName.getText(), Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
+		comm = new WebsocketComm(pairingCode, Activator.getRemoteIfdConfig(), new HandshakeResultListener() {
 			
 			@Override
 			public void onHandshakeFinished(boolean success) {

@@ -32,7 +32,7 @@ public class Activator implements BundleActivator {
 			@Override
 			public IfdComm get(String type) {
 				if ("WEBSOCKET".equals(type) || type == null){
-					return new WebsocketComm(null, PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE),new EclipseRemoteIfdConfigManager(PLUGIN_ID));
+					return new WebsocketComm(null, new EclipseRemoteIfdConfigManager(PLUGIN_ID));
 				}
 				return null;
 			}

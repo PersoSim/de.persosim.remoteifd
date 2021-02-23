@@ -94,4 +94,9 @@ public class KeystoreRemoteIfdConfigManager implements RemoteIfdConfigManager {
 		// intentionally ignored in tests
 	}
 
+	@Override
+	public String getName() {
+		return "RemoteIfdTest";
+	}
+
 }

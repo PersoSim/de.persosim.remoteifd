@@ -63,16 +63,14 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 	
 	String contextHandle = "PersoSimContextHandle";
 	private List<PcscListener> listeners;
-	private String deviceName;
 	UnsignedInteger lun = new UnsignedInteger(1);
 	
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private Certificate clientCertificate;
 	private IfdProtocolWebSocket currentProtocol;
 
-	public DefaultMessageHandler(List<PcscListener> listeners, String deviceName, RemoteIfdConfigManager remoteIfdConfig, Certificate clientCertificate) {
+	public DefaultMessageHandler(List<PcscListener> listeners, RemoteIfdConfigManager remoteIfdConfig, Certificate clientCertificate) {
 		this.listeners = listeners;
-		this.deviceName = deviceName;
 		this.remoteIfdConfig = remoteIfdConfig;
 		this.clientCertificate = clientCertificate;
 	}
@@ -419,7 +417,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider {
 
 	@Override
 	public String getDeviceName() {
-		return deviceName;
+		return remoteIfdConfig.getName();
 	}
 
 }

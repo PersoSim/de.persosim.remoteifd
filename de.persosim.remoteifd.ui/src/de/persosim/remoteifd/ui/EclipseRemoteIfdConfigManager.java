@@ -3,6 +3,8 @@ package de.persosim.remoteifd.ui;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPair;
@@ -26,6 +28,7 @@ import org.globaltester.lib.bctls.TlsCertificateGenerator;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import de.persosim.simulator.preferences.PersoSimPreferenceManager;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.websocket.RemoteIfdConfigManager;
 
@@ -179,6 +182,22 @@ public class EclipseRemoteIfdConfigManager implements RemoteIfdConfigManager {
 		PreferenceHelper.setPreferenceValue(bundleId, PREFERENCE_KEY_PAIRED_CERTS, jsonData.toString());
 		PreferenceHelper.flush(bundleId);
 	
+	}
+
+	@Override
+	public String getName() {
+		String retVal = PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE);
+		
+		if (retVal == null){
+			retVal = "PersoSim";
+			try {
+				retVal += "_" + InetAddress.getLocalHost().getHostName();
+			} catch (UnknownHostException e) {
+				//NOSONAR: The host name is only used for display purposes
+			}
+		}
+		
+		return retVal;
 	}
 	
 }

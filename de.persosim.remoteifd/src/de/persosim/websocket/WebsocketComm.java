@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.util.List;
@@ -27,19 +28,17 @@ public class WebsocketComm implements IfdComm, Runnable{
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private HandshakeResultListener handshakeResultListener;
 	private Thread announcer;
-	private String readerName;
 	
 
 
-	public WebsocketComm(String pairingCode, String readerName, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
+	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
 		this.pairingCode = pairingCode;
 		this.remoteIfdConfig = remoteIfdConfig;
 		this.handshakeResultListener = handshakeResultListener;
-		this.readerName = readerName;
 	}
 	
-	public WebsocketComm(String pairingCode, String readerName, RemoteIfdConfigManager remoteIfdConfig) {
-		this(pairingCode, readerName, remoteIfdConfig, null);
+	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig) {
+		this(pairingCode, remoteIfdConfig, null);
 	}
 
 	@Override
@@ -104,10 +103,6 @@ public class WebsocketComm implements IfdComm, Runnable{
 		
 		
 		try {
-			if (readerName == null){
-				readerName = "PersoSim_" + InetAddress.getLocalHost().getHostName();	
-			}
-
 			String id = encodeCertificate(remoteIfdConfig.getHostCertificate());
 			
 			if (serverSocket != null) {
@@ -122,7 +117,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 				
 				System.out.println("Local server port: "+serverSocket.getLocalPort());
 				
-				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(readerName, id, serverSocket.getLocalPort(), pairingCode!=null)));
+				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(remoteIfdConfig.getName(), id, serverSocket.getLocalPort(), pairingCode!=null)));
 				announcer.start();
 				
 				client = serverSocket.accept();
@@ -175,7 +170,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	}
 
 	private WebSocketProtocol getWebSocketProtocol(TlsHandshaker handshaker) {
-		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, readerName, remoteIfdConfig, handshaker.getClientCertificate()));
+		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, remoteIfdConfig, handshaker.getClientCertificate()));
 	}
 
 	private void notifyListenersConnectionClosed() {
@@ -203,6 +198,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 		if (running) {
 			stop();	
 		}
+
 		listeners = null;
 	}
 

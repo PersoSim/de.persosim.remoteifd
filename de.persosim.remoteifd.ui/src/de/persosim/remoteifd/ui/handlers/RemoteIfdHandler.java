@@ -11,8 +11,6 @@ import org.globaltester.logging.tags.LogLevel;
 
 import de.persosim.driver.connector.service.IfdConnector;
 import de.persosim.driver.connector.ui.parts.ReaderPart;
-import de.persosim.remoteifd.ui.PreferenceConstants;
-import de.persosim.simulator.preferences.PersoSimPreferenceManager;
 import de.persosim.websocket.WebsocketComm;
 
 public class RemoteIfdHandler {
@@ -31,7 +29,7 @@ public class RemoteIfdHandler {
 		if (readerPart.getObject() instanceof ReaderPart) {
 			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
 			
-			readerPartObject.switchReaderType(new WebsocketComm(null, PersoSimPreferenceManager.getPreference(PreferenceConstants.READER_NAME_PREFERENCE), de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
+			readerPartObject.switchReaderType(new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
 		}
 		
 		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.INFO);

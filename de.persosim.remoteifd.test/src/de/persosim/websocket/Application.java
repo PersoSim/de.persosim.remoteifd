@@ -67,7 +67,7 @@ public class Application {
 			BasicLogger.logException(Application.class, e);
 		}
 		
-		WebsocketComm comm = new WebsocketComm(null, null, new KeystoreRemoteIfdConfigManager(new ByteArrayInputStream(HexString.toByteArray(KEYSTORE)), STOREPASSWORD.toCharArray(), KEYPASSWORD.toCharArray()));
+		WebsocketComm comm = new WebsocketComm(null, new KeystoreRemoteIfdConfigManager(new ByteArrayInputStream(HexString.toByteArray(KEYSTORE)), STOREPASSWORD.toCharArray(), KEYPASSWORD.toCharArray()));
 		
 		connector.connect(comm);
 	}
