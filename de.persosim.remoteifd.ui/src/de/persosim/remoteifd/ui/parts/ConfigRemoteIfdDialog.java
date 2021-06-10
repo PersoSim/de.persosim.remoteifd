@@ -220,8 +220,8 @@ public class ConfigRemoteIfdDialog extends Dialog {
 						MessageBox mb;
 						if (success) {
 							mb = new MessageBox(getParentShell(), SWT.ICON_INFORMATION);
-							mb.setMessage("Pairing successfull");
-							mb.setText("Pairing successfull");
+							mb.setMessage("Pairing successful");
+							mb.setText("Pairing successful");
 						} else {
 							mb = new MessageBox(getParentShell(), SWT.ICON_ERROR);
 							mb.setMessage("Pairing failed");
