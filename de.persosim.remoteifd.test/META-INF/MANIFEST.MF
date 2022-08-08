@@ -11,5 +11,6 @@ Require-Bundle: de.persosim.driver.connector,
  org.globaltester.cryptoprovider,
  org.globaltester.cryptoprovider.bc,
  org.globaltester.logging,
- de.persosim.driver.connector.ui
+ de.persosim.driver.connector.ui,
+ org.junit
 Bundle-Vendor: secunet Security Networks AG

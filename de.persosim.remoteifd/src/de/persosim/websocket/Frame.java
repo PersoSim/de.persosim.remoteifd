@@ -1,5 +1,7 @@
 package de.persosim.websocket;
 
+import java.nio.ByteBuffer;
+
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
 
@@ -94,7 +96,37 @@ public class Frame {
 
 	@Override
 	public String toString() {
-		return new StringBuilder().append("Payload: " + HexString.encode(payload)).toString();
+		return new StringBuilder().append("Opcode: " + getOpcode() + "(" + getOpcode().getValue() + ")," + System.lineSeparator() + "Payload:" + System.lineSeparator() + HexString.dump(payload)).toString();
+	}
+
+	public byte[] getHeaderBytes() {
+		short header = 0;
+		byte [] payload = getPayload();
+
+		header |= getFin() ? 0x8000 : 0;
+		// IMPL set RSV
+		header |= (getOpcode().getValue() << 8);
+
+		if (payload.length <= 125) {
+			header |= payload.length;
+		} else if (payload.length <= 65535) {
+			header |= 126;
+		} else {
+			header |= 127;
+		}
+		ByteBuffer messageHeader = ByteBuffer.allocate(16);
+		messageHeader.putShort(header);
+
+		if (payload.length <= 65535 && payload.length > 125) {
+			messageHeader.putShort((short) (0xFFFF & payload.length));
+		} else if (payload.length > 65535) {
+			messageHeader.putLong(payload.length);
+		}
+
+		messageHeader.flip();
+		byte [] toWrite = new byte [messageHeader.remaining()];
+		messageHeader.get(toWrite);
+		return toWrite;
 	}
 	
 }

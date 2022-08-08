@@ -1,10 +1,11 @@
 package de.persosim.websocket;
 
 import java.io.IOException;
-import java.net.InetAddress;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.util.List;
@@ -170,7 +171,11 @@ public class WebsocketComm implements IfdComm, Runnable{
 	}
 
 	private WebSocketProtocol getWebSocketProtocol(TlsHandshaker handshaker) {
-		return new WebSocketProtocol(handshaker.getInputStream(), handshaker.getOutputStream(), new DefaultMessageHandler(listeners, remoteIfdConfig, handshaker.getClientCertificate()));
+		InputStream inputStream = handshaker.getInputStream();
+		OutputStream outputStream = handshaker.getOutputStream();
+		DefaultMessageHandler messageHandler = new DefaultMessageHandler(listeners, remoteIfdConfig, handshaker.getClientCertificate());
+		DefaultHandshakeHandler handshakeHandler = new DefaultHandshakeHandler(outputStream, new InputStreamReader(inputStream));
+		return new WebSocketProtocol(inputStream, outputStream, messageHandler, handshakeHandler);
 	}
 
 	private void notifyListenersConnectionClosed() {
