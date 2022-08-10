@@ -101,7 +101,6 @@ public class Frame {
 
 	public byte[] getHeaderBytes() {
 		short header = 0;
-		byte [] payload = getPayload();
 
 		header |= getFin() ? 0x8000 : 0;
 		// IMPL set RSV
@@ -121,6 +120,8 @@ public class Frame {
 			messageHeader.putShort((short) (0xFFFF & payload.length));
 		} else if (payload.length > 65535) {
 			messageHeader.putLong(payload.length);
+		} else {
+			//No length field needed, already encoded in header
 		}
 
 		messageHeader.flip();
