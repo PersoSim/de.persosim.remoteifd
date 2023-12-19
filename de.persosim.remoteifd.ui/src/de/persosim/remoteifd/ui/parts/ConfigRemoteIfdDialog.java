@@ -266,7 +266,7 @@ public class ConfigRemoteIfdDialog extends Dialog {
 			String certDescription = "";
 			if (cert instanceof X509Certificate) {
 				X509Certificate x509cert = (X509Certificate) cert;
-				certDescription += x509cert.getSubjectDN();
+				certDescription += x509cert.getSubjectX500Principal();
 			} else {
 				certDescription = Integer.toHexString(cert.hashCode());
 			}
