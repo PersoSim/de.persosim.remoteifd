@@ -14,3 +14,4 @@ Require-Bundle: de.persosim.driver.connector,
  de.persosim.driver.connector.ui,
  org.junit
 Bundle-Vendor: secunet Security Networks AG
+Automatic-Module-Name: de.persosim.remoteifd.test
