@@ -10,7 +10,7 @@ Require-Bundle: org.globaltester.lib.json,
  de.persosim.simulator,
  org.globaltester.simulator,
  org.globaltester.lib.bctls
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-RequiredExecutionEnvironment: JavaSE-17
 Bundle-Vendor: secunet Security Networks AG
 Import-Package: org.osgi.framework
 Automatic-Module-Name: de.persosim.remoteifd

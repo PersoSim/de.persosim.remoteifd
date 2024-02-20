@@ -3,7 +3,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: PersoSim Remote IFD Test
 Bundle-SymbolicName: de.persosim.remoteifd.test
 Bundle-Version: 0.19.0.qualifier
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Bundle: de.persosim.driver.connector,
  de.persosim.simulator,
  de.persosim.remoteifd,
