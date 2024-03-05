@@ -9,7 +9,7 @@ Require-Bundle: org.globaltester.lib.json,
  de.persosim.driver.connector,
  de.persosim.simulator,
  org.globaltester.simulator,
- org.globaltester.lib.bctls
+ org.globaltester.cryptoprovider.bc
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Bundle-Vendor: secunet Security Networks AG
 Import-Package: org.osgi.framework

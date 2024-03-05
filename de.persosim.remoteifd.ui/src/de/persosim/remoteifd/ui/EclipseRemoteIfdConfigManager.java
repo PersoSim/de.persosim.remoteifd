@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import org.globaltester.base.PreferenceHelper;
-import org.globaltester.lib.bctls.TlsCertificateGenerator;
+import org.globaltester.cryptoprovider.bc.TlsCertificateGenerator;
 import org.json.JSONException;
 import org.json.JSONObject;
 

@@ -18,7 +18,7 @@ Require-Bundle: org.eclipse.swt;bundle-version="3.103.0",
  de.persosim.driver.connector.ui,
  de.persosim.remoteifd,
  de.persosim.simulator,
- org.globaltester.lib.bctls,
+ org.globaltester.cryptoprovider.bc,
  org.globaltester.base,
  org.globaltester.lib.json,
  javax.inject
