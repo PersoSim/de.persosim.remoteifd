@@ -2,15 +2,15 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: PersoSim Remote IFD UI
 Bundle-SymbolicName: de.persosim.remoteifd
-Bundle-Version: 0.19.0.qualifier
+Bundle-Version: 1.0.0.qualifier
 Export-Package: de.persosim.websocket
-Require-Bundle: org.globaltester.lib.json,
- org.globaltester.logging,
+Require-Bundle: org.globaltester.logging,
  de.persosim.driver.connector,
  de.persosim.simulator,
  org.globaltester.simulator,
  org.globaltester.cryptoprovider.bc
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Bundle-Vendor: secunet Security Networks AG
-Import-Package: org.osgi.framework
+Import-Package: org.osgi.framework,
+ org.json
 Automatic-Module-Name: de.persosim.remoteifd
