@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.util.List;
@@ -29,7 +30,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	private RemoteIfdConfigManager remoteIfdConfig;
 	private HandshakeResultListener handshakeResultListener;
 	private Thread announcer;
-	
+
 
 
 	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig, HandshakeResultListener handshakeResultListener) {
@@ -37,7 +38,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 		this.remoteIfdConfig = remoteIfdConfig;
 		this.handshakeResultListener = handshakeResultListener;
 	}
-	
+
 	public WebsocketComm(String pairingCode, RemoteIfdConfigManager remoteIfdConfig) {
 		this(pairingCode, remoteIfdConfig, null);
 	}
@@ -53,7 +54,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	public void stop() {
 		BasicLogger.log(getClass(), "WebsocketComm stopping", LogLevel.DEBUG);
 		if (serverThread != null) {
-			serverThread.interrupt();	
+			serverThread.interrupt();
 		}
 		if (announcer != null) {
 			announcer.interrupt();
@@ -68,11 +69,11 @@ public class WebsocketComm implements IfdComm, Runnable{
 			BasicLogger.logException(getClass(), "Exception during closing of the websocket client socket", e,
 					LogLevel.WARN);
 		}
-		
+
 		try {
 			if (serverSocket != null) {
 				serverSocket.close();
-				serverSocket = null;	
+				serverSocket = null;
 			}
 		} catch (IOException e) {
 			BasicLogger.logException(getClass(), "Exception during closing of the websocket comm server socket", e, LogLevel.WARN);
@@ -98,38 +99,39 @@ public class WebsocketComm implements IfdComm, Runnable{
 	public void setListeners(List<PcscListener> listeners) {
 		this.listeners = listeners;
 	}
-	
+
 	@Override
 	public void run() {
-		
-		
+
+
 		try {
 			String id = encodeCertificate(remoteIfdConfig.getHostCertificate());
-			
+
 			if (serverSocket != null) {
 				throw new IllegalStateException("Server socket should be null at this point, probably not stopped correctly before resetting");
 			}
-			
+
 			serverSocket = null;
-			
+
 			announcer = null;
 			serverSocket = new ServerSocket(0);
+
 			while (!Thread.interrupted() ) {
-				
+
 				System.out.println("Local server port: "+serverSocket.getLocalPort());
-				
+
 				announcer  = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(remoteIfdConfig.getName(), id, serverSocket.getLocalPort(), pairingCode!=null)));
 				announcer.start();
-				
+
 				client = serverSocket.accept();
-					 
+
 				announcer.interrupt();
 				announcer = null;
-					
+
 				TlsHandshaker handshaker = getHandshaker();
 
 				boolean handshakeResult = handshaker.performHandshake();
-				
+
 				notifyListeners(handshakeResult);
 
 				if (handshakeResult) {
@@ -142,16 +144,18 @@ public class WebsocketComm implements IfdComm, Runnable{
 					stop();
 					break;
 				}
-				
+
 			}
+		} catch (SocketException e) {
+			BasicLogger.log(getClass(), "java.net.Exception: " + e.getMessage(), LogLevel.WARN);
 		} catch (IOException | CertificateEncodingException e) {
 			BasicLogger.logException(getClass(), e, LogLevel.WARN);
 		} finally {
 			if (announcer != null) {
-				announcer.interrupt();	
+				announcer.interrupt();
 			}
 		}
-		
+
 	}
 
 	private String encodeCertificate(Certificate hostCertificate) throws CertificateEncodingException {
@@ -201,7 +205,7 @@ public class WebsocketComm implements IfdComm, Runnable{
 	@Override
 	public void reset() {
 		if (running) {
-			stop();	
+			stop();
 		}
 
 		listeners = null;

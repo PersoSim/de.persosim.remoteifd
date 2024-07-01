@@ -22,13 +22,13 @@ public class Activator implements BundleActivator {
 		return context;
 	}
 
-	
+
 	@Override
 	public void start(BundleContext bundleContext) throws Exception {
 		Activator.context = bundleContext;
-		
+
 		provider = new CommProvider() {
-			
+
 			@Override
 			public IfdComm get(String type) {
 				if ("WEBSOCKET".equals(type) || type == null){
@@ -37,19 +37,18 @@ public class Activator implements BundleActivator {
 				return null;
 			}
 		};
-		
-		PersoSimPreferenceManager.setPreferenceAccessor(new EclipsePreferenceAccessor());
-		
+
+		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());
 		CommManager.addCommProvider(provider);
 	}
-	
+
 	@Override
 	public void stop(BundleContext bundleContext) throws Exception {
 		Activator.context = null;
 
 		CommManager.removeCommProvider(provider);
 	}
-	
+
 	/**
 	 * @return the application wide remote ifd configuration
 	 */
