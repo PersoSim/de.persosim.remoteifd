@@ -51,12 +51,11 @@ final class Announcer implements Runnable {
 					if (broadcast == null){
 						continue;
 					}
+					BasicLogger.log(getClass(), "Sending " + packetsToSend.size() + " announcement packets to '" + broadcast.toString() + "'", LogLevel.TRACE);
 					packetsToSend.add(new DatagramPacket(content, content.length, broadcast, ANNOUNCE_PORT));
 				}
 			}
 			
-
-			BasicLogger.log(getClass(), "Sending " + packetsToSend.size() + " announcement packets", LogLevel.TRACE);
 			while (!Thread.interrupted()){
 				for (DatagramPacket packet : packetsToSend){
 					socket.send(packet);
