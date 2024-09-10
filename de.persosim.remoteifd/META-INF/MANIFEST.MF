@@ -11,6 +11,9 @@ Require-Bundle: org.globaltester.logging,
  org.globaltester.cryptoprovider.bc
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Bundle-Vendor: secunet Security Networks AG
-Import-Package: org.osgi.framework,
- org.json
+Import-Package: 
+ org.bouncycastle.util.io.pem,
+ org.globaltester.cryptoprovider,
+ org.json,
+ org.osgi.framework
 Automatic-Module-Name: de.persosim.remoteifd
