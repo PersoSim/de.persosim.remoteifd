@@ -6,8 +6,10 @@ import org.osgi.framework.BundleContext;
 import de.persosim.driver.connector.CommManager;
 import de.persosim.driver.connector.CommProvider;
 import de.persosim.driver.connector.IfdComm;
+import de.persosim.driver.connector.exceptions.IfdCreationException;
 import de.persosim.simulator.preferences.EclipsePreferenceAccessor;
 import de.persosim.simulator.preferences.PersoSimPreferenceManager;
+import de.persosim.vsmartcard.VSmartcardComm;
 import de.persosim.websocket.RemoteIfdConfigManager;
 import de.persosim.websocket.WebsocketComm;
 
@@ -17,6 +19,7 @@ public class Activator implements BundleActivator {
 	private static EclipseRemoteIfdConfigManager remoteIfdConfigManager;
 	public static String PLUGIN_ID = "de.persosim.remoteifd.ui";
 	private CommProvider provider;
+	private CommProvider providerVSmartcard;
 
 	static BundleContext getContext() {
 		return context;
@@ -37,9 +40,25 @@ public class Activator implements BundleActivator {
 				return null;
 			}
 		};
-
-		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());
 		CommManager.addCommProvider(provider);
+
+		providerVSmartcard = new CommProvider() {
+
+			@Override
+			public IfdComm get(String type) {
+				if ("VSMARTCARD".equals(type) || type == null){
+					try {
+						return new VSmartcardComm(VSmartcardComm.DEFAULT_PORT);
+					} catch (IfdCreationException e) {
+						return null;
+					}
+				}
+				return null;
+			}
+		};
+		CommManager.addCommProvider(providerVSmartcard);
+
+		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());;
 	}
 
 	@Override

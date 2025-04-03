@@ -3,7 +3,8 @@ Bundle-ManifestVersion: 2
 Bundle-Name: PersoSim Remote IFD UI
 Bundle-SymbolicName: de.persosim.remoteifd
 Bundle-Version: 1.1.1.qualifier
-Export-Package: de.persosim.websocket
+Export-Package: de.persosim.vsmartcard,
+ de.persosim.websocket
 Require-Bundle: org.globaltester.logging,
  de.persosim.driver.connector,
  de.persosim.simulator,
