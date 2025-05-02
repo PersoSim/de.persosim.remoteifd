@@ -26,13 +26,13 @@ public class RemoteIfdHandler {
 	
 	@Execute
 	public void execute(final MPart mPart) {
+		BasicLogger.log(this.getClass(), "RemoteIfd menu entry toggled", LogLevel.INFO);
+		
 		if (mPart.getObject() instanceof ReaderPart) {
 			ReaderPart readerPartObject = (ReaderPart) mPart.getObject();
 			
 			readerPartObject.switchReaderType(new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
 		}
-		
-		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.INFO);
 	}
 		
 }
