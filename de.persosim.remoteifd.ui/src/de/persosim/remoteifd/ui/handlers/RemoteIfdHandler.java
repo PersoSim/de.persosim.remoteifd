@@ -1,11 +1,10 @@
  
 package de.persosim.remoteifd.ui.handlers;
 
-import jakarta.inject.Inject;
-
+import org.eclipse.e4.core.di.annotations.CanExecute;
 import org.eclipse.e4.core.di.annotations.Execute;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
-import org.eclipse.e4.ui.workbench.modeling.EPartService;
+import org.eclipse.e4.ui.model.application.ui.menu.MItem;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 
@@ -15,24 +14,25 @@ import de.persosim.websocket.WebsocketComm;
 
 public class RemoteIfdHandler {
 	IfdConnector connector;
-
-	@Inject
-	private EPartService partService;
+	
+	@CanExecute
+	public boolean checkState(final MPart mPart, final MItem mItem) {
+		if (mPart.getObject() instanceof ReaderPart) {
+			ReaderPart readerPartObject = (ReaderPart) mPart.getObject();
+			mItem.setSelected(readerPartObject.getCurrentCommType() == WebsocketComm.NAME);
+		}
+		return true;
+	}
 	
 	@Execute
-	public void execute() {
-
-		// ID of part as defined in fragment.e4xmi application model
-		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
-
+	public void execute(final MPart mPart) {
+		BasicLogger.log(this.getClass(), "RemoteIfd menu entry toggled", LogLevel.INFO);
 		
-		if (readerPart.getObject() instanceof ReaderPart) {
-			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
+		if (mPart.getObject() instanceof ReaderPart) {
+			ReaderPart readerPartObject = (ReaderPart) mPart.getObject();
 			
 			readerPartObject.switchReaderType(new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
 		}
-		
-		BasicLogger.log(this.getClass(), "Switch to use RemoteIfd", LogLevel.INFO);
 	}
 		
 }

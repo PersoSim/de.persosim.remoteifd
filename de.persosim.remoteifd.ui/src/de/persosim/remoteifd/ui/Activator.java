@@ -37,9 +37,9 @@ public class Activator implements BundleActivator {
 				return null;
 			}
 		};
-
-		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());
 		CommManager.addCommProvider(provider);
+
+		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());;
 	}
 
 	@Override

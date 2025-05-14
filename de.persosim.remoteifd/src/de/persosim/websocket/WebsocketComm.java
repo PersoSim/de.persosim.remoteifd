@@ -27,6 +27,7 @@ import de.persosim.simulator.utils.HexString;
 
 public class WebsocketComm implements IfdComm, Runnable {
 
+	public static final String NAME = "WEBSOCKET";
 	private boolean running = false;
 	private String pairingCode;
 	private List<PcscListener> listeners;
@@ -250,7 +251,7 @@ public class WebsocketComm implements IfdComm, Runnable {
 
 	@Override
 	public String getName() {
-		return "WEBSOCKET";
+		return NAME;
 	}
 
 	@Override
