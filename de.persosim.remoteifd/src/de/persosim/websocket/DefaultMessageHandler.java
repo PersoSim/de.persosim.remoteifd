@@ -33,9 +33,9 @@ import de.persosim.driver.connector.pcsc.PcscCallResult;
 import de.persosim.driver.connector.pcsc.PcscConstants;
 import de.persosim.driver.connector.pcsc.PcscListener;
 import de.persosim.driver.connector.pcsc.SimplePcscCallResult;
-import de.persosim.simulator.PersoSimLogTags;
 import de.persosim.simulator.apdu.CommandApdu;
 import de.persosim.simulator.apdu.CommandApduFactory;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.tlv.ConstructedTlvDataObject;
 import de.persosim.simulator.tlv.PrimitiveTlvDataObject;
 import de.persosim.simulator.tlv.TlvConstants;
@@ -48,7 +48,7 @@ import de.persosim.websocket.IfdProtocolWebSocket.ContextProvider;
 public class DefaultMessageHandler implements MessageHandler, ContextProvider
 {
 
-	public static HashMap<String, IfdProtocolWebSocket> supportedProtocols = new HashMap<>();
+	protected static HashMap<String, IfdProtocolWebSocket> supportedProtocols = new HashMap<>();
 	static {
 		supportedProtocols.put(IfdProtocolWebSocketV0.IDENTIFIER, new IfdProtocolWebSocketV0());
 		supportedProtocols.put(IfdProtocolWebSocketV2.IDENTIFIER, new IfdProtocolWebSocketV2());
@@ -83,7 +83,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider
 	@Override
 	public String message(String incomingMessage)
 	{
-		BasicLogger.log("Received JSON message: " + System.lineSeparator() + incomingMessage, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Received JSON message: " + System.lineSeparator() + incomingMessage, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		JSONObject jsonMessage = new JSONObject(incomingMessage);
 
@@ -100,7 +100,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider
 		}
 
 		BasicLogger.log("Received Json message with type: " + messageType + ", ContextHandle: " + incomingContextHandle + ", SlotHandle: " + incomingSlotHandle, LogLevel.TRACE,
-				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {
@@ -127,7 +127,7 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider
 				response = currentProtocol.message(jsonMessage, this);
 		}
 
-		BasicLogger.log("Send JSON message: " + System.lineSeparator() + response.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Send JSON message: " + System.lineSeparator() + response.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		return response.toString();
 	}
 
@@ -373,12 +373,12 @@ public class DefaultMessageHandler implements MessageHandler, ContextProvider
 				}
 				catch (RuntimeException e) {
 					BasicLogger.logException("Something went wrong while processing of the PCSC data by listener \"" + listener.getClass().getName() + "\"!\"", e, LogLevel.ERROR,
-							new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+							new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				}
 			}
 		}
 		else {
-			BasicLogger.log("No PCSC listeners registered!", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("No PCSC listeners registered!", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		if (result == null) {
 			result = new SimplePcscCallResult(PcscConstants.IFD_NOT_SUPPORTED);

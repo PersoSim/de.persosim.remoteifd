@@ -12,7 +12,7 @@ import org.json.JSONObject;
 
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscConstants;
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.platform.Iso7816Lib;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
@@ -20,7 +20,7 @@ import de.persosim.simulator.utils.Utils;
 public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket
 {
 
-	public static String IDENTIFIER = "IFDInterface_WebSocket_v0";
+	public static final String IDENTIFIER = "IFDInterface_WebSocket_v0";
 
 	private static final String SLOT_HANDLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw0123456789";
 
@@ -43,7 +43,7 @@ public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket
 		}
 
 		BasicLogger.log("Received Json message with type: " + messageType + ", ContextHandle: " + incomingContextHandle + ", SlotHandle: " + incomingSlotHandle, LogLevel.TRACE,
-				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {
@@ -108,7 +108,7 @@ public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket
 				response.put(CONTEXT_HANDLE, ctxProvider.getContextHandle());
 				response.put(SLOT_HANDLE, this.slotHandle);
 
-				System.out.println("EstablishPace InputMessage: " + jsonMessage.getString("InputData"));
+				BasicLogger.log("EstablishPace InputMessage: " + jsonMessage.getString("InputData"), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				byte[] pcscPerformEstablishPaceChannel = ctxProvider.pcscPerformEstablishPaceChannel(HexString.toByteArray(jsonMessage.getString("InputData")));
 
 				if (pcscPerformEstablishPaceChannel == null) {
@@ -139,7 +139,7 @@ public class IfdProtocolWebSocketV0 implements IfdProtocolWebSocket
 				response.put(RESULT_MINOR, Tr03112codes.TERMINAL_RESULT_TERMINAL_UNKNOWN_ACTION);
 		}
 
-		BasicLogger.log("Send JSON message: " + System.lineSeparator() + response.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Send JSON message: " + System.lineSeparator() + response.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		return response;
 	}
 

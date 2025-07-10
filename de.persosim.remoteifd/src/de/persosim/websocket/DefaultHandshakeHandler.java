@@ -13,7 +13,7 @@ import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.globaltester.logging.tags.LogTag;
 
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.utils.Base64;
 
 public class DefaultHandshakeHandler extends HandshakeHandler
@@ -63,16 +63,16 @@ public class DefaultHandshakeHandler extends HandshakeHandler
 	{
 
 		try {
-			BasicLogger.log("Begin handling websocket handshake", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Begin handling websocket handshake", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 			String data = readToDelimiter(new char[] { '\r', '\n', '\r', '\n' });
 
-			BasicLogger.log("Received message for websocket handshake: " + System.lineSeparator() + data, LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Received message for websocket handshake: " + System.lineSeparator() + data, LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 			Matcher get = Pattern.compile("^GET").matcher(data);
 
 			if (!get.find()) {
-				BasicLogger.log("No GET found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				BasicLogger.log("No GET found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				return false;
 			}
 
@@ -80,7 +80,7 @@ public class DefaultHandshakeHandler extends HandshakeHandler
 
 			if (!match.find()) {
 
-				BasicLogger.log("No Sec-WebSocket-Key found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				BasicLogger.log("No Sec-WebSocket-Key found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				return false;
 			}
 
@@ -88,14 +88,14 @@ public class DefaultHandshakeHandler extends HandshakeHandler
 			String response = ("HTTP/1.1 101 Switching Protocols\r\n" + "Connection: Upgrade\r\n" + "Upgrade: websocket\r\n" + "Sec-WebSocket-Accept: " + challengeResponse + "\r\n\r\n");
 
 			BasicLogger.log("Sending response message for websocket handshake: " + System.lineSeparator() + response, LogLevel.DEBUG,
-					new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
 			outputStream.write(responseBytes, 0, responseBytes.length);
 			outputStream.flush();
 			return true;
 		}
 		catch (NoSuchAlgorithmException | IOException e) {
-			BasicLogger.logException(e.getMessage(), e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException(e.getMessage(), e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			return false;
 		}
 	}

@@ -12,14 +12,13 @@ import de.persosim.driver.connector.IfdInterface;
 import de.persosim.driver.connector.UnsignedInteger;
 import de.persosim.driver.connector.features.PersoSimPcscProcessor;
 import de.persosim.driver.connector.pcsc.PcscCallResult;
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
 
 public class IfdProtocolWebSocketV2 extends IfdProtocolWebSocketV0
 {
-
-	public static String IDENTIFIER = "IFDInterface_WebSocket_v2";
+	public static final String IDENTIFIER = "IFDInterface_WebSocket_v2";
 
 	@Override
 	public JSONObject message(JSONObject jsonMessage, IfdProtocolWebSocket.ContextProvider ctxProvider)
@@ -37,7 +36,7 @@ public class IfdProtocolWebSocketV2 extends IfdProtocolWebSocketV0
 		}
 
 		BasicLogger.log("Received Json message with type: " + messageType + ", ContextHandle: " + incomingContextHandle + ", SlotHandle: " + incomingSlotHandle, LogLevel.TRACE,
-				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		JSONObject response = new JSONObject();
 		switch (messageType) {

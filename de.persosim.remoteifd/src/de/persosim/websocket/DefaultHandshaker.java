@@ -24,7 +24,7 @@ import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.globaltester.logging.tags.LogTag;
 
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.utils.HexString;
 
 public class DefaultHandshaker implements TlsHandshaker
@@ -61,22 +61,24 @@ public class DefaultHandshaker implements TlsHandshaker
 							new SignatureAndHashAlgorithm(HashAlgorithm.sha256, SignatureAlgorithm.rsa));
 				}
 
+				@Override
 				public void notifyClientCertificate(Certificate arg0) throws IOException
 				{
 					validateCertificate(arg0);
 					clientCert = arg0;
-				};
+				}
 
 				private void validateCertificate(Certificate cert)
 				{
 					java.security.cert.Certificate javaCert = CertificateConverter.fromBcTlsCertificateToJavaCertificate(cert);
 					if (!remoteIfdConfig.getPairedCertificates().keySet().contains(javaCert)) {
 						BasicLogger.log("The certificate with serial 0x" + HexString.encode(cert.getCertificateAt(0).getSerialNumber()) + " is not paired", LogLevel.ERROR,
-								new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+								new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 						throw new IllegalArgumentException("Unknown cert " + cert);
 					}
 				}
 
+				@Override
 				public CertificateRequest getCertificateRequest()
 				{
 					Vector<Object> signatureAndHash = new Vector<>();
@@ -88,18 +90,19 @@ public class DefaultHandshaker implements TlsHandshaker
 				public void notifyHandshakeComplete() throws IOException
 				{
 					super.notifyHandshakeComplete();
-					BasicLogger.log("Handshake done", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					BasicLogger.log("Handshake done", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				}
 
 				@Override
 				public void notifyOfferedCipherSuites(int[] arg0) throws IOException
 				{
 					super.notifyOfferedCipherSuites(arg0);
-					String cipherSuites = "Offered cipher suites:";
+
+					StringBuilder cipherSuites = new StringBuilder("Offered cipher suites:");
 					for (int i : arg0) {
-						cipherSuites += System.lineSeparator() + Integer.toHexString(i);
+						cipherSuites.append(System.lineSeparator()).append(Integer.toHexString(i));
 					}
-					BasicLogger.log(cipherSuites, LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					BasicLogger.log(cipherSuites.toString(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				}
 
 			});
@@ -107,7 +110,7 @@ public class DefaultHandshaker implements TlsHandshaker
 
 		}
 		catch (IOException e) {
-			BasicLogger.logException("Other side closed the connection", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException("Other side closed the connection", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		return false;
 	}
@@ -116,12 +119,12 @@ public class DefaultHandshaker implements TlsHandshaker
 	public void closeConnection()
 	{
 		try {
-			BasicLogger.log("Closing TLS connection", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Closing TLS connection", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			protocol.close();
 		}
 		catch (IOException e) {
 			// Expected when peer closes socket too early
-			BasicLogger.logException("Exception during closing of tls server, probably due to early close", e, LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Exception during closing of tls server, probably due to early close: " + e.getMessage(), LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 	}
 

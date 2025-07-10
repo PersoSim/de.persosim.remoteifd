@@ -23,7 +23,7 @@ import org.globaltester.logging.tags.LogTag;
 
 import de.persosim.driver.connector.IfdComm;
 import de.persosim.driver.connector.pcsc.PcscListener;
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.preferences.PersoSimPreferenceManager;
 import de.persosim.simulator.utils.HexString;
 
@@ -78,7 +78,7 @@ public class WebsocketComm implements IfdComm, Runnable
 	@Override
 	public void stop()
 	{
-		BasicLogger.log("WebsocketComm stopping", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("WebsocketComm stopping", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		running = false;
 		if (serverThread != null) {
 			serverThread.interrupt();
@@ -93,7 +93,7 @@ public class WebsocketComm implements IfdComm, Runnable
 			}
 		}
 		catch (IOException e) {
-			BasicLogger.logException("Exception during closing of the websocket client socket", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException("Exception during closing of the websocket client socket", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		try {
 			if (serverSocket != null) {
@@ -102,7 +102,7 @@ public class WebsocketComm implements IfdComm, Runnable
 			}
 		}
 		catch (IOException e) {
-			BasicLogger.logException("Exception during closing of the websocket comm server socket", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException("Exception during closing of the websocket comm server socket", e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		try {
 			if (serverThread != null) {
@@ -112,7 +112,7 @@ public class WebsocketComm implements IfdComm, Runnable
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
-		BasicLogger.log("WebsocketComm has been stopped", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("WebsocketComm has been stopped", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 	}
 
 	@Override
@@ -142,7 +142,7 @@ public class WebsocketComm implements IfdComm, Runnable
 				this.serverSocket = serverSock;
 
 				while (!Thread.interrupted() && running) {
-					BasicLogger.log("Local server port: " + serverSocket.getLocalPort(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					BasicLogger.log("Local server port: " + serverSocket.getLocalPort(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 					announcer = new Thread(new Announcer(new DefaultAnnouncementMessageBuilder(remoteIfdConfig.getName(), id, serverSocket.getLocalPort(), pairingCode != null)));
 					announcer.start();
@@ -174,10 +174,10 @@ public class WebsocketComm implements IfdComm, Runnable
 			}
 		}
 		catch (SocketException e) {
-			BasicLogger.log("java.net.SocketException: " + e.getMessage(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("java.net.SocketException: " + e.getMessage(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
-			BasicLogger.logException(e.getMessage(), e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException(e.getMessage(), e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		finally {
 			running = false;
@@ -193,7 +193,7 @@ public class WebsocketComm implements IfdComm, Runnable
 			MessageDigest messageDigest = MessageDigest.getInstance("SHA256", Crypto.getCryptoProvider());
 			byte[] hash = messageDigest.digest(hostCertificate.getEncoded());
 			String hashAsString = HexString.encode(hash).toLowerCase(); // Lowercase required for AusweisApp
-			BasicLogger.log("Remote IFD SHA256 hash of certificate: " + hashAsString, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Remote IFD SHA256 hash of certificate: " + hashAsString, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			return hashAsString;
 		}
 		else {
@@ -203,7 +203,7 @@ public class WebsocketComm implements IfdComm, Runnable
 				pemWriterCert.writeObject(pemObjectCert);
 			}
 			String certificate = stringWriterCert.toString();
-			BasicLogger.log("Remote IFD certificate: " + certificate, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Remote IFD certificate: " + certificate, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			return certificate;
 		}
 	}

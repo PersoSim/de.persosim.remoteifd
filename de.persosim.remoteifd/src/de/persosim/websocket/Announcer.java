@@ -18,7 +18,7 @@ import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.globaltester.logging.tags.LogTag;
 
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 
 /**
  * Announces the availability of a SaK server on all available interfaces via UDP.
@@ -44,67 +44,78 @@ final class Announcer implements Runnable
 	@Override
 	public void run()
 	{
-		BasicLogger.log("Announcer has been started.", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Announcer has been started.", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		try (DatagramSocket socket = new DatagramSocket()) {
-			socket.setBroadcast(true);
-			byte[] content = builder.build();
-
-			Set<DatagramPacket> packetsToSend = getPacketsToSend(content);
-
-			Set<DatagramPacket> packetsToSendWork = new HashSet<>();
-			packetsToSendWork.addAll(packetsToSend);
-
-			int counter = 0;
-			boolean sentFailed = true;
-			while (!Thread.currentThread().isInterrupted()) {
-				Set<DatagramPacket> packetsToSendToRemove = new HashSet<>();
-				for (DatagramPacket packet : packetsToSendWork) {
-					try {
-						BasicLogger.log("Sending local UDP broadcast to '" + packet.getSocketAddress().toString() + "'...", LogLevel.TRACE,
-								new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-						socket.send(packet);
-					}
-					catch (SocketException se) {
-						packetsToSendToRemove.add(packet);
-						BasicLogger.log("Sending local UDP broadcast to '" + packet.getSocketAddress().toString() + "' failed: " + se.getMessage(), LogLevel.INFO,
-								new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-						sentFailed = true;
-					}
-				}
-				packetsToSendWork.removeAll(packetsToSendToRemove);
-				if (packetsToSendWork.isEmpty()) {
-					// macOS: MTU 9000 Jumbo Frames in appropriate network interface(s) enabled?
-					BasicLogger.log("Cannot find any communication partner for pairing via UDP broadcast!", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-				}
-				try {
-					Thread.sleep(SLEEPING_TIME);
-				}
-				catch (InterruptedException e) {
-					// This will happen every time the announce is running in a Thread and then stopped
-					BasicLogger.logException("Announcer interrupted", e, LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-					Thread.currentThread().interrupt();
-					break;
-				}
-				counter++;
-				if (sentFailed && counter == REINIT_PACKETS_TO_SEND_THRESHOLD) {
-					packetsToSend = getPacketsToSend(content);
-					packetsToSendWork = new HashSet<>();
-					packetsToSendWork.addAll(packetsToSend);
-					sentFailed = false;
-					counter = 0;
-				}
-			}
-
-			BasicLogger.log("Announcer stopped", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			doAnnounce(socket);
 		}
 		catch (IOException e) {
 			throw new IllegalStateException("UDP announce failed!", e);
 		}
 	}
 
+	private void doAnnounce(DatagramSocket socket) throws IOException
+	{
+		socket.setBroadcast(true);
+		byte[] content = builder.build();
+
+		Set<DatagramPacket> packetsToSend = getPacketsToSend(content);
+
+		Set<DatagramPacket> packetsToSendWork = new HashSet<>();
+		packetsToSendWork.addAll(packetsToSend);
+
+		int counter = 0;
+		boolean sentFailed = false;
+		while (!Thread.currentThread().isInterrupted()) {
+			Set<DatagramPacket> packetsToSendToRemove = new HashSet<>();
+			for (DatagramPacket packet : packetsToSendWork) {
+				sentFailed = sendPacket(socket, sentFailed, packetsToSendToRemove, packet);
+			}
+			packetsToSendWork.removeAll(packetsToSendToRemove);
+			if (packetsToSendWork.isEmpty()) {
+				// macOS: MTU 9000 Jumbo Frames in appropriate network interface(s) enabled?
+				BasicLogger.log("Cannot find any communication partner for pairing via UDP broadcast!", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+			}
+			try {
+				Thread.sleep(SLEEPING_TIME);
+			}
+			catch (InterruptedException e) {
+				// This will happen every time the announce is running in a Thread and then stopped
+				BasicLogger.log("Announcer interrupted", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+				Thread.currentThread().interrupt();
+				break;
+			}
+			counter++;
+			if (sentFailed && counter == REINIT_PACKETS_TO_SEND_THRESHOLD) {
+				packetsToSend = getPacketsToSend(content);
+				packetsToSendWork = new HashSet<>();
+				packetsToSendWork.addAll(packetsToSend);
+				sentFailed = false;
+				counter = 0;
+			}
+		}
+
+		BasicLogger.log("Announcer stopped", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+	}
+
+	private boolean sendPacket(DatagramSocket socket, boolean sentFailed, Set<DatagramPacket> packetsToSendToRemove, DatagramPacket packet) throws IOException
+	{
+		try {
+			BasicLogger.log("Sending local UDP broadcast to '" + packet.getSocketAddress().toString() + "'...", LogLevel.TRACE,
+					new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+			socket.send(packet);
+		}
+		catch (SocketException se) {
+			packetsToSendToRemove.add(packet);
+			BasicLogger.log("Sending local UDP broadcast to '" + packet.getSocketAddress().toString() + "' failed: " + se.getMessage(), LogLevel.INFO,
+					new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+			sentFailed = true;
+		}
+		return sentFailed;
+	}
+
 	private Set<DatagramPacket> getPacketsToSend(byte[] content) throws UnknownHostException, SocketException
 	{
-		BasicLogger.log("----- Refreshing Network Interfaces information -----", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("----- Refreshing Network Interfaces information -----", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		Set<DatagramPacket> packetsToSend = new HashSet<>();
 		packetsToSend.add(new DatagramPacket(content, content.length, InetAddress.getByName("255.255.255.255"), ANNOUNCE_PORT));
 
@@ -130,12 +141,12 @@ final class Announcer implements Runnable
 
 	private void logNetworkInterfaceInformation(NetworkInterface networkInterface) throws SocketException
 	{
-		BasicLogger.log("--- Network Interface to send announces to: ---", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-		BasicLogger.log("Display name: '" + networkInterface.getDisplayName() + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-		BasicLogger.log("Name: '" + networkInterface.getName() + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("--- Network Interface to send announces to: ---", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+		BasicLogger.log("Display name: '" + networkInterface.getDisplayName() + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+		BasicLogger.log("Name: '" + networkInterface.getName() + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
 		for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-			BasicLogger.log("InetAddress: '" + inetAddress + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("InetAddress: '" + inetAddress + "'", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		// BasicLogger.log("Is Up? " + networkInterface.isUp(),
 		// LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
@@ -145,7 +156,7 @@ final class Announcer implements Runnable
 		// networkInterface.isPointToPoint(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
 		// BasicLogger.log("Supports multicast? " +
 		// networkInterface.supportsMulticast(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-		BasicLogger.log("Is Virtual? " + networkInterface.isVirtual(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Is Virtual? " + networkInterface.isVirtual(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		byte[] mac = networkInterface.getHardwareAddress();
 		String macAsString = "NONE";
 		if (mac != null) {
@@ -155,8 +166,8 @@ final class Announcer implements Runnable
 			}
 			macAsString = sb.toString();
 		}
-		BasicLogger.log("Hardware address: " + macAsString, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
-		BasicLogger.log("MTU: " + Integer.toString(networkInterface.getMTU()), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Hardware address: " + macAsString, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+		BasicLogger.log("MTU: " + Integer.toString(networkInterface.getMTU()), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 	}
 
 }

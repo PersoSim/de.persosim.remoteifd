@@ -26,7 +26,7 @@ import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.globaltester.logging.tags.LogTag;
 
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 
 
 public class PairingServer implements TlsHandshaker
@@ -87,7 +87,7 @@ public class PairingServer implements TlsHandshaker
 				{
 					super.notifyHandshakeComplete();
 					remoteIfdConfig.addPairedCertificate(CertificateConverter.fromBcTlsCertificateToJavaCertificate(clientCert));
-					BasicLogger.log("Handshake done", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					BasicLogger.log("Handshake done", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				}
 
 				@Override
@@ -107,14 +107,14 @@ public class PairingServer implements TlsHandshaker
 					for (int i : arg0) {
 						cipherSuites.append(System.lineSeparator()).append(Integer.toHexString(i));
 					}
-					BasicLogger.log(cipherSuites.toString(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+					BasicLogger.log(cipherSuites.toString(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				}
 			});
 
 			return true;
 		}
 		catch (IOException e) {
-			BasicLogger.logException(e.getMessage(), e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException(e.getMessage(), e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		return false;
 	}
@@ -123,7 +123,7 @@ public class PairingServer implements TlsHandshaker
 	public void closeConnection()
 	{
 		try {
-			BasicLogger.log("Closing PSK TLS connection", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Closing PSK TLS connection", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			protocol.close();
 		}
 		catch (IOException e) {

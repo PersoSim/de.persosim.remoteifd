@@ -12,7 +12,7 @@ import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
 import org.globaltester.logging.tags.LogTag;
 
-import de.persosim.simulator.PersoSimLogTags;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.utils.HexString;
 import de.persosim.simulator.utils.Utils;
 import de.persosim.websocket.Frame.Opcode;
@@ -57,7 +57,8 @@ public class WebSocketProtocol
 										Thread.sleep(1000);
 									}
 									catch (InterruptedException e) {
-										BasicLogger.logException("Sleeping of icc polling thread interrupted", e, LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+										// Expected when peer closes socket
+										BasicLogger.log("Sleeping of icc polling thread interrupted. " + e.getMessage(), LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 										Thread.currentThread().interrupt();
 									}
 									if (messageHandler.isIccAvailable() != lastIccState) {
@@ -80,43 +81,36 @@ public class WebSocketProtocol
 					}
 
 					if (currentFrame.getOpcode().isControl()) {
-						BasicLogger.log("Handling control frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+						BasicLogger.log("Handling control frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 						connectionState = handleFrame(currentFrame);
 					}
 					else {
 						if (joinedFrame == null) {
 							if (!Opcode.CONTINUATION.equals(currentFrame.getOpcode())) {
-								BasicLogger.log("Starting new joined frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+								BasicLogger.log("Starting new joined frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 								joinedFrame = currentFrame;
 							}
 							else {
 								BasicLogger.log("Expected normal frame but got " + currentFrame.getOpcode().toString(), LogLevel.WARN,
-										new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+										new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 							}
 						}
 						else {
 							if (Opcode.CONTINUATION.equals(currentFrame.getOpcode())) {
-								BasicLogger.log("Appending to joined frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+								BasicLogger.log("Appending to joined frame", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 								joinedFrame.appendFrame(currentFrame);
 							}
 							else {
 								BasicLogger.log("Expected contination frame but got " + currentFrame.getOpcode().toString(), LogLevel.WARN,
-										new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+										new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 							}
 						}
 
 						if (joinedFrame != null && joinedFrame.getFin()) {
-							BasicLogger.log("Joined frame complete, handling now", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+							BasicLogger.log("Joined frame complete, handling now", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 							final Frame frameToProcess = joinedFrame;
 							joinedFrame = null;
-							Thread handler = new Thread(new Runnable() {
-
-								@Override
-								public void run()
-								{
-									handleFrame(frameToProcess);
-								}
-							});
+							Thread handler = new Thread(() -> handleFrame(frameToProcess));
 							handler.start();
 						}
 					}
@@ -157,7 +151,7 @@ public class WebSocketProtocol
 
 				return ConnectionState.ESTABLISHED;
 			default:
-				BasicLogger.log("Got message with unhandled opcode: " + curFrame.toString(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+				BasicLogger.log("Got message with unhandled opcode: " + curFrame.toString(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				writeFrame(createBasicFrame(Opcode.CLOSE));
 				return ConnectionState.CLOSED;
 		}
@@ -190,22 +184,22 @@ public class WebSocketProtocol
 
 	private void writeFrame(Frame frame)
 	{
-		BasicLogger.log("Writing frame: " + frame, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+		BasicLogger.log("Writing frame: " + frame, LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		StringBuilder logMessage = new StringBuilder();
 
 		try {
 			byte[] toWrite = frame.getHeaderBytes();
-			BasicLogger.log("Frame header and length is: " + HexString.encode(toWrite), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log("Frame header and length is: " + HexString.encode(toWrite), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			outputStream.write(toWrite);
 			outputStream.write(frame.getPayload());
 
 			logMessage.append("Sent frame bytes: " + HexString.dump(Utils.concatByteArrays(toWrite, frame.getPayload())));
-			BasicLogger.log(logMessage.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log(logMessage.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 		}
 		catch (IOException e) {
-			BasicLogger.logException("Writing a frame failed", e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException("Writing a frame failed", e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 	}
 
@@ -245,7 +239,7 @@ public class WebSocketProtocol
 			StringBuilder logMessage = new StringBuilder();
 			logMessage.append("Received Frame Header:" + System.lineSeparator() + "FIN: " + fin + System.lineSeparator() + "Opcode: " + opcode.toString() + System.lineSeparator() + "Mask: " + mask
 					+ System.lineSeparator() + "Payload Length: " + payloadLength);
-			BasicLogger.log(logMessage.toString(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log(logMessage.toString(), LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 			// IMPL handle extension data
 
@@ -268,7 +262,7 @@ public class WebSocketProtocol
 
 			logMessage.append(HexString.dump(payload.toByteArray()));
 
-			BasicLogger.log(logMessage.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.log(logMessage.toString(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 			result.setFin(fin);
 			result.setRSV1(rsv1);
@@ -280,7 +274,7 @@ public class WebSocketProtocol
 			return result;
 		}
 		catch (IOException e) {
-			BasicLogger.logException("Reading and parsing a new frame failed", e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_ID));
+			BasicLogger.logException("Reading and parsing a new frame failed", e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		return null;
 	}

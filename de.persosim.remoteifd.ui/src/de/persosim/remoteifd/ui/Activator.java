@@ -1,11 +1,14 @@
 package de.persosim.remoteifd.ui;
 
+import org.globaltester.logging.BasicLogger;
+import org.globaltester.logging.tags.LogLevel;
+import org.globaltester.logging.tags.LogTag;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
 import de.persosim.driver.connector.CommManager;
 import de.persosim.driver.connector.CommProvider;
-import de.persosim.driver.connector.IfdComm;
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.preferences.EclipsePreferenceAccessor;
 import de.persosim.simulator.preferences.PersoSimPreferenceManager;
 import de.persosim.websocket.RemoteIfdConfigManager;
@@ -15,7 +18,7 @@ public class Activator implements BundleActivator {
 
 	private static BundleContext context;
 	private static EclipseRemoteIfdConfigManager remoteIfdConfigManager;
-	public static String PLUGIN_ID = "de.persosim.remoteifd.ui";
+	public static final String PLUGIN_ID = "de.persosim.remoteifd.ui";
 	private CommProvider provider;
 
 	static BundleContext getContext() {
@@ -25,21 +28,20 @@ public class Activator implements BundleActivator {
 
 	@Override
 	public void start(BundleContext bundleContext) throws Exception {
+		BasicLogger.log("START Activator Remote IFD UI", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.SYSTEM_TAG_ID));
 		Activator.context = bundleContext;
 
-		provider = new CommProvider() {
-
-			@Override
-			public IfdComm get(String type) {
-				if ("WEBSOCKET".equals(type) || type == null){
-					return new WebsocketComm(null, new EclipseRemoteIfdConfigManager(PLUGIN_ID));
-				}
-				return null;
-			}
+		provider = type -> {
+		    if ("WEBSOCKET".equals(type) || type == null) {
+		        return new WebsocketComm(null, new EclipseRemoteIfdConfigManager(PLUGIN_ID));
+		    }
+		    return null;
 		};
+
 		CommManager.addCommProvider(provider);
 
-		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());;
+		PersoSimPreferenceManager.setPreferenceAccessorIfNotAvailable(new EclipsePreferenceAccessor());
+		BasicLogger.log("END Activator Remote IFD UI", LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.SYSTEM_TAG_ID));
 	}
 
 	@Override
