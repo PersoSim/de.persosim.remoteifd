@@ -56,11 +56,11 @@ public class KeystoreRemoteIfdConfigManager implements RemoteIfdConfigManager {
 		try {
 			Enumeration<String> aliases = keyStore.aliases();
 
-			Map<Certificate, String> retVal = new HashMap<Certificate, String>();
+			Map<Certificate, String> retVal = new HashMap<>();
 
 			while (aliases.hasMoreElements()) {
 				String current = aliases.nextElement();
-				if (current != "default") {
+				if ("default".equals(current)) {
 					retVal.put(keyStore.getCertificate(current), "no name for tests");
 				}
 			}
