@@ -4,9 +4,11 @@ Bundle-Name: PersoSim Remote IFD UI
 Bundle-SymbolicName: de.persosim.remoteifd
 Bundle-Version: 1.3.0.qualifier
 Export-Package: de.persosim.websocket
-Require-Bundle: org.globaltester.logging,
+Require-Bundle: 
+ org.globaltester.logging,
  de.persosim.driver.connector,
  de.persosim.simulator,
+ de.persosim.simulator.basics,
  org.globaltester.simulator,
  org.globaltester.cryptoprovider.bc
 Bundle-RequiredExecutionEnvironment: JavaSE-17

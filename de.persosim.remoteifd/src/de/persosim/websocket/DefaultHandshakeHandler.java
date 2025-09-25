@@ -11,62 +11,68 @@ import java.util.regex.Pattern;
 
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
+import org.globaltester.logging.tags.LogTag;
 
+import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.simulator.utils.Base64;
 
-public class DefaultHandshakeHandler extends HandshakeHandler {
+public class DefaultHandshakeHandler extends HandshakeHandler
+{
 
-	public DefaultHandshakeHandler(OutputStream outputStream, InputStreamReader reader) {
+	public DefaultHandshakeHandler(OutputStream outputStream, InputStreamReader reader)
+	{
 		super(outputStream, reader);
 	}
 
-	private String readToDelimiter(char[] cs) {
-				
+	private String readToDelimiter(char[] cs)
+	{
+
 		int indexToDelimiter = 0;
 		StringBuilder data = new StringBuilder();
-		
+
 		do {
 			try {
 				int read = reader.read();
 				char readChar = (char) read;
-				
+
 				data.append(readChar);
-				
+
 				if (read == -1) {
 					throw new IllegalStateException("Reading reached EOF unexpectedly");
 				}
-				
+
 				if (readChar == cs[indexToDelimiter]) {
 					indexToDelimiter++;
-				} else {
+				}
+				else {
 					indexToDelimiter = 0;
 				}
-				
-			} catch (IOException e) {
+
+			}
+			catch (IOException e) {
 				throw new IllegalStateException("Reading of handshake message failed with exception", e);
 			}
-			
+
 		} while (indexToDelimiter != cs.length);
-		
+
 		return data.toString();
 	}
-	
+
 	@Override
-	public boolean handle() {
+	public boolean handle()
+	{
 
 		try {
-			BasicLogger.log(getClass(), "Begin handling websocket handshake",
-					LogLevel.DEBUG);
-			
-			String data = readToDelimiter(new char [] {'\r', '\n', '\r', '\n'});
+			BasicLogger.log("Begin handling websocket handshake", LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
-			BasicLogger.log(getClass(), "Received message for websocket handshake: " + System.lineSeparator() + data,
-					LogLevel.DEBUG);
+			String data = readToDelimiter(new char[] { '\r', '\n', '\r', '\n' });
+
+			BasicLogger.log("Received message for websocket handshake: " + System.lineSeparator() + data, LogLevel.DEBUG, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 
 			Matcher get = Pattern.compile("^GET").matcher(data);
 
 			if (!get.find()) {
-				BasicLogger.log(getClass(), "No GET found in handshake message");
+				BasicLogger.log("No GET found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				return false;
 			}
 
@@ -74,24 +80,22 @@ public class DefaultHandshakeHandler extends HandshakeHandler {
 
 			if (!match.find()) {
 
-				BasicLogger.log(getClass(), "No Sec-WebSocket-Key found in handshake message");
+				BasicLogger.log("No Sec-WebSocket-Key found in handshake message", LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 				return false;
 			}
 
-			String challengeResponse = Base64.encode(MessageDigest.getInstance("SHA-1").digest(
-					(match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes(StandardCharsets.UTF_8)));
-			String response = ("HTTP/1.1 101 Switching Protocols\r\n" + "Connection: Upgrade\r\n"
-					+ "Upgrade: websocket\r\n" + "Sec-WebSocket-Accept: " + challengeResponse + "\r\n\r\n");
+			String challengeResponse = Base64.encode(MessageDigest.getInstance("SHA-1").digest((match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes(StandardCharsets.UTF_8)));
+			String response = ("HTTP/1.1 101 Switching Protocols\r\n" + "Connection: Upgrade\r\n" + "Upgrade: websocket\r\n" + "Sec-WebSocket-Accept: " + challengeResponse + "\r\n\r\n");
 
-			BasicLogger.log(getClass(),
-					"Sending response message for websocket handshake: " + System.lineSeparator() + response,
-					LogLevel.DEBUG);
+			BasicLogger.log("Sending response message for websocket handshake: " + System.lineSeparator() + response, LogLevel.DEBUG,
+					new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
 			outputStream.write(responseBytes, 0, responseBytes.length);
 			outputStream.flush();
 			return true;
-		} catch (NoSuchAlgorithmException | IOException e) {
-			BasicLogger.logException(getClass(), e);
+		}
+		catch (NoSuchAlgorithmException | IOException e) {
+			BasicLogger.logException(e.getMessage(), e, LogLevel.ERROR, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 			return false;
 		}
 	}
