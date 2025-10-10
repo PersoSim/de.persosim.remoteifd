@@ -174,7 +174,7 @@ public class WebsocketComm implements IfdComm, Runnable
 			}
 		}
 		catch (SocketException e) {
-			BasicLogger.log("java.net.SocketException: " + e.getMessage(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+			BasicLogger.log("java.net.SocketException: " + e.getMessage(), LogLevel.TRACE, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		}
 		catch (IOException | CertificateEncodingException | NoSuchAlgorithmException e) {
 			BasicLogger.logException(e.getMessage(), e, LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
