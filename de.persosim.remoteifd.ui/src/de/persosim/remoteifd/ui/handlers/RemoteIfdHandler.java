@@ -1,12 +1,10 @@
 
 package de.persosim.remoteifd.ui.handlers;
 
-import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.CanExecute;
 import org.eclipse.e4.core.di.annotations.Execute;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.menu.MItem;
-import org.eclipse.e4.ui.services.IServiceConstants;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
@@ -16,7 +14,6 @@ import de.persosim.driver.connector.ui.parts.ReaderPart;
 import de.persosim.simulator.log.PersoSimLogTags;
 import de.persosim.websocket.WebsocketComm;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 
 public class RemoteIfdHandler
 {
@@ -41,7 +38,7 @@ public class RemoteIfdHandler
 	}
 
 	@Execute
-	public void execute(IEclipseContext context, @Named(IServiceConstants.ACTIVE_SELECTION) Object selection)
+	public void execute()
 	{
 		BasicLogger.log("Remote IFD interface menu entry toggled", LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		// ID of part as defined in fragment.e4xmi application model
