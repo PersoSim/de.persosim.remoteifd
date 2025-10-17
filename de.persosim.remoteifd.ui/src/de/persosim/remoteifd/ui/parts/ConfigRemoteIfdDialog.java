@@ -279,6 +279,9 @@ public class ConfigRemoteIfdDialog extends Dialog
 
 	protected void refreshTable(Table certificatesTable)
 	{
+		if (certificatesTable.isDisposed())
+			return;
+
 		certificatesTable.removeAll();
 
 		RemoteIfdConfigManager configManager = Activator.getRemoteIfdConfig();
