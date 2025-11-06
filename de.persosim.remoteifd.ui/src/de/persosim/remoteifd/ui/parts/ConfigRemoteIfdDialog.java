@@ -202,7 +202,7 @@ public class ConfigRemoteIfdDialog extends Dialog
 					startPairing.setText(STOP_PAIRING_TEXT);
 
 					if (readerPart.getObject() instanceof ReaderPart readerPartObject) {
-						readerPartObject.switchReaderType(ReaderType.NONE);
+						readerPartObject.switchReaderType(ReaderType.NONE, null, false);
 					}
 					String pairingCode = String.format("%04d", spinnerPIN.getSelection());
 					createCommObject(pairingCode);

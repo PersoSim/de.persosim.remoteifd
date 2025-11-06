@@ -1,4 +1,4 @@
- 
+
 package de.persosim.remoteifd.ui.handlers;
 
 import jakarta.inject.Inject;
@@ -16,29 +16,25 @@ public class ConfigureRemoteIfdHandler {
 
 	@Inject
 	private EPartService partService;
-	
+
 	@Execute
 	public void execute(Shell shell) {
 		// ID of part as defined in fragment.e4xmi application model
 		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
-		
-		//disable reader while configuring
-		if (readerPart.getObject() instanceof ReaderPart) {
-			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
-			
-			readerPartObject.switchReaderType(ReaderType.NONE);
+
+		// disable reader while configuring
+		if (readerPart.getObject() instanceof ReaderPart mPart) {
+			mPart.switchReaderType(ReaderType.NONE, null, true);
 		}
-		
+
 		//configuration dialog
 		ConfigRemoteIfdDialog dialog = new ConfigRemoteIfdDialog(shell, readerPart);
 		dialog.open();
-		
+
 		//restart reader
-		if (readerPart.getObject() instanceof ReaderPart) {
-			ReaderPart readerPartObject = (ReaderPart) readerPart.getObject();
-			
-			readerPartObject.restartReader();
+		if (readerPart.getObject() instanceof ReaderPart mPart) {
+			mPart.restartReader();
 		}
 	}
-		
+
 }
