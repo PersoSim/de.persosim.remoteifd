@@ -5,6 +5,7 @@ import org.eclipse.e4.core.di.annotations.CanExecute;
 import org.eclipse.e4.core.di.annotations.Execute;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.menu.MItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MMenuItem;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.globaltester.logging.BasicLogger;
 import org.globaltester.logging.tags.LogLevel;
@@ -31,21 +32,20 @@ public class RemoteIfdHandler
 		// ID of part as defined in fragment.e4xmi application model
 		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
 		if (readerPart.getObject() instanceof ReaderPart mPart) {
-			ReaderPart readerPartObject = mPart;
-			mItem.setSelected(WebsocketComm.NAME.equals(readerPartObject.getCurrentCommType()));
+			mItem.setSelected(WebsocketComm.NAME.equals(mPart.getCurrentCommType()));
 		}
 		return true;
 	}
 
 	@Execute
-	public void execute()
+	public void execute(MMenuItem menuItem)
 	{
-		BasicLogger.log("Remote IFD interface selected", LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+		boolean isSelected = menuItem.isSelected();
+		BasicLogger.log("Remote IFD interface menu entry selected: " + !isSelected, LogLevel.INFO, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
 		// ID of part as defined in fragment.e4xmi application model
 		MPart readerPart = partService.findPart("de.persosim.driver.connector.ui.parts.reader");
 		if (readerPart.getObject() instanceof ReaderPart mPart) {
-			ReaderPart readerPartObject = mPart;
-			readerPartObject.switchReaderType(new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()));
+			mPart.switchReaderType(null, new WebsocketComm(null, de.persosim.remoteifd.ui.Activator.getRemoteIfdConfig()), isSelected);
 		}
 	}
 
