@@ -160,10 +160,14 @@ public class ConfigRemoteIfdDialog extends Dialog
 				if (selectedItemIndex == -1)
 					return;
 				TableItem selectedItem = certificatesTable.getItem(selectedItemIndex);
-				Map.Entry<Certificate, String> cert = (Map.Entry<Certificate, String>) selectedItem.getData();
-				Activator.getRemoteIfdConfig().deletePairedCertificate(cert.getKey());
-				BasicLogger.log("Pairing certificate deleted: '" + selectedItem.getText(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
-				refreshTable(certificatesTable);
+				Object selectedItemData = selectedItem.getData();
+				if (selectedItemData instanceof Map.Entry certEntry) {
+					if (certEntry.getKey() instanceof Certificate cert) {
+						Activator.getRemoteIfdConfig().deletePairedCertificate(cert);
+						BasicLogger.log("Pairing certificate deleted: '" + selectedItem.getText(), LogLevel.WARN, new LogTag(BasicLogger.LOG_TAG_TAG_ID, PersoSimLogTags.REMOTE_IFD_TAG_ID));
+						refreshTable(certificatesTable);
+					}
+				}
 			}
 
 			@Override
